@@ -33,8 +33,15 @@ export async function navigate(tabId, url) {
   try {
     await chrome.tabs.update(tabId, { url });
     await waitForComplete(tabId);
-    // Give the content script a moment to settle the DOM.
-    await sendToTab(tabId, makeRequest('CS_CHECK_BLOCKED', { url }));
+    // Content-script readiness / blocked check. A messaging hiccup here (the
+    // page still settling) must not abort navigation — only a real blocked
+    // state should propagate.
+    try {
+      await sendToTab(tabId, makeRequest('CS_CHECK_BLOCKED', { url }));
+    } catch (err) {
+      if (err && (err.code === 'BLOCKED_CHECKPOINT' || err.name === 'BlockedStateError')) throw err;
+      // otherwise: content script not ready yet; proceed, later reads will retry
+    }
   } finally {
     endNavigation();
   }
@@ -57,8 +64,40 @@ function waitForComplete(tabId) {
   });
 }
 
+// Read-only message types are safe to retry (no page side effects).
+const RETRYABLE_TYPES = new Set([
+  'CS_CHECK_BLOCKED', 'CS_DETECT', 'CS_COLLECT_PREVIEWS',
+  'CS_COLLECT_PROFILE', 'CS_COLLECT_ACTIVITY', 'CS_COLLECT_COMPANY'
+]);
+
+function isTransientMessagingError(err) {
+  const m = (err && err.message) || '';
+  return /message channel closed|Could not establish connection|Receiving end does not exist|no response from content script/i.test(m);
+}
+
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
 // Send a typed request to the content script in a tab and await its response.
-export function sendToTab(tabId, message) {
+// Read-only messages retry a few times on transient messaging errors (the
+// content script may still be (re)loading after a navigation/re-render).
+export async function sendToTab(tabId, message, { retries = 3, delayMs = 500 } = {}) {
+  const canRetry = RETRYABLE_TYPES.has(message.type);
+  let attempt = 0;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    try {
+      return await sendToTabOnce(tabId, message);
+    } catch (err) {
+      if (err && (err.name === 'BlockedStateError' || err.name === 'UnsupportedLayoutError')) throw err;
+      attempt += 1;
+      if (!canRetry || !isTransientMessagingError(err) || attempt > retries) throw err;
+      // eslint-disable-next-line no-await-in-loop
+      await wait(delayMs * attempt);
+    }
+  }
+}
+
+function sendToTabOnce(tabId, message) {
   return new Promise((resolve, reject) => {
     chrome.tabs.sendMessage(tabId, message, (response) => {
       if (chrome.runtime.lastError) {

@@ -49,20 +49,29 @@ async function discoverPreviews(job) {
   let blocked = false;
 
   // Loop pages/scrolls until a stop condition.
-  // Bound the loop hard to avoid runaway behaviour.
+  // Bound the loop hard to avoid runaway behaviour. Any messaging failure stops
+  // discovery gracefully with whatever previews were already collected — it must
+  // never fail the whole job (we can still enrich + export what we have).
   for (let step = 0; step < 200; step++) {
     const control = await refreshControl(job);
+    if (control.cancelled || control.paused) break;
+
     let batch = { rows: [], hasNext: false, hasScroll: false };
     try {
       batch = await sendToTab(tabId, makeRequest('CS_COLLECT_PREVIEWS', { url: job.source_url, sourceType: job.source_type, limit: job.max_profiles || 500 }));
     } catch (err) {
       if (isBlockedError(err)) { blocked = true; }
-      else throw err;
+      else { logger.warn('preview collection failed; stopping discovery', { reason: err.message }); break; }
     }
     for (const row of (batch && batch.rows) || []) {
       const key = row.profile_url || row.source_record_id;
       if (key && !seen.has(key)) { seen.add(key); previews.push(row); }
     }
+
+    // Persist progress immediately so counts survive even if a later step fails.
+    job.counts = { discovered: previews.length };
+    await saveJob(job);
+    emitProgress(job);
 
     const decision = decideNextAction({
       acceptedCount: previews.length,
@@ -83,14 +92,18 @@ async function discoverPreviews(job) {
       if (decision.reason === 'blocked') markJobBlocked(job, { phase: 'discovery' });
       break;
     }
-    if (decision.action === 'next') {
-      await sendToTab(tabId, makeRequest('CS_NEXT_PAGE', { url: job.source_url }));
-    } else if (decision.action === 'scroll') {
-      await sendToTab(tabId, makeRequest('CS_SCROLL', { url: job.source_url }));
+    try {
+      if (decision.action === 'next') {
+        await sendToTab(tabId, makeRequest('CS_NEXT_PAGE', { url: job.source_url }));
+      } else if (decision.action === 'scroll') {
+        await sendToTab(tabId, makeRequest('CS_SCROLL', { url: job.source_url }));
+      }
+    } catch (err) {
+      // Page-turn/scroll re-render closed the message channel — stop discovery
+      // with the previews collected so far rather than failing the job.
+      logger.warn('pagination/scroll failed; continuing with collected previews', { reason: err.message });
+      break;
     }
-    job.counts = { discovered: previews.length };
-    await saveJob(job);
-    emitProgress(job);
   }
   return previews;
 }
