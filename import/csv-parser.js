@@ -2,10 +2,14 @@
 // embedded newlines, and doubled quotes. Returns an array of row objects keyed
 // by the header row.
 
-export function parseCsv(text) {
+export function parseCsv(text, delimiterOpt) {
   let input = String(text == null ? '' : text);
   // Strip UTF-8 BOM.
   if (input.charCodeAt(0) === 0xfeff) input = input.slice(1);
+
+  // Auto-detect delimiter from the header line (comma or semicolon) unless one
+  // is explicitly provided.
+  const delimiter = delimiterOpt || detectDelimiter(input);
 
   const rows = [];
   let field = '';
@@ -27,7 +31,7 @@ export function parseCsv(text) {
       field += ch; i += 1; continue;
     }
     if (ch === '"') { inQuotes = true; i += 1; continue; }
-    if (ch === ',') { endField(); i += 1; continue; }
+    if (ch === delimiter) { endField(); i += 1; continue; }
     if (ch === '\r') {
       if (input[i + 1] === '\n') i += 1;
       endRecord(); i += 1; continue;
@@ -40,6 +44,19 @@ export function parseCsv(text) {
 
   if (rows.length === 0) return [];
   const header = rows[0].map((h) => h.trim());
+  return finish(rows, header);
+}
+
+// Choose delimiter by counting occurrences on the first line (outside quotes is
+// approximated by simple counting, which is sufficient for header detection).
+function detectDelimiter(input) {
+  const firstLine = input.split(/\r?\n/)[0] || '';
+  const commas = (firstLine.match(/,/g) || []).length;
+  const semis = (firstLine.match(/;/g) || []).length;
+  return semis > commas ? ';' : ',';
+}
+
+function finish(rows, header) {
   const out = [];
   for (let r = 1; r < rows.length; r++) {
     const cells = rows[r];

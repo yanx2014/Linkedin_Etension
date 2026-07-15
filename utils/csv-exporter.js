@@ -10,6 +10,9 @@ export const CSV_COLUMNS = Object.freeze([
 
 const BOM = '﻿';
 const CRLF = '\r\n';
+// Default field delimiter. Semicolon opens natively in European/French Excel
+// (which treats comma-CSV as a single column). Override per call if needed.
+export const DEFAULT_DELIMITER = ';';
 const DANGEROUS_LEADING = new Set(['=', '+', '-', '@']);
 const LEADING_CONTROLS = new Set(['\t', '\r', '\n']);
 
@@ -31,24 +34,24 @@ export function formulaGuard(input) {
   return { value: s, escaped: false };
 }
 
-// RFC 4180 field quoting: quote when the field contains comma, quote, CR, or LF;
-// embedded quotes are doubled.
-export function csvQuoteField(value) {
+// RFC 4180 field quoting: quote when the field contains the delimiter, a quote,
+// CR, or LF; embedded quotes are doubled.
+export function csvQuoteField(value, delimiter = DEFAULT_DELIMITER) {
   const s = value == null ? '' : String(value);
-  if (/[",\r\n]/.test(s)) {
+  if (s.includes(delimiter) || /["\r\n]/.test(s)) {
     return `"${s.replace(/"/g, '""')}"`;
   }
   return s;
 }
 
 // Convert one record object into an ordered array of guarded, quoted cells.
-function serializeRecord(record, escapedAudit, rowIndex) {
+function serializeRecord(record, escapedAudit, rowIndex, delimiter) {
   return CSV_COLUMNS.map((col) => {
     const raw = record[col];
     const flat = flattenValue(raw);
     const guarded = formulaGuard(flat);
     if (guarded.escaped) escapedAudit.push({ row: rowIndex, column: col });
-    return csvQuoteField(guarded.value);
+    return csvQuoteField(guarded.value, delimiter);
   });
 }
 
@@ -56,37 +59,37 @@ function serializeRecord(record, escapedAudit, rowIndex) {
 // objects are JSON-encoded (should not normally reach the CSV layer).
 function flattenValue(value) {
   if (value == null) return '';
-  if (Array.isArray(value)) return value.map((v) => flattenValue(v)).join('; ');
+  if (Array.isArray(value)) return value.map((v) => flattenValue(v)).join(', ');
   if (typeof value === 'object') return JSON.stringify(value);
   return String(value);
 }
 
 // Export an array of enriched records to a CSV string.
 // Returns { content, escaped } where `escaped` lists guarded cells for the audit.
-export function exportProfilesCsv(records) {
+export function exportProfilesCsv(records, { delimiter = DEFAULT_DELIMITER } = {}) {
   const escaped = [];
-  const headerLine = CSV_COLUMNS.map((c) => csvQuoteField(c)).join(',');
+  const headerLine = CSV_COLUMNS.map((c) => csvQuoteField(c, delimiter)).join(delimiter);
   const lines = [headerLine];
   records.forEach((rec, i) => {
-    lines.push(serializeRecord(rec, escaped, i).join(','));
+    lines.push(serializeRecord(rec, escaped, i, delimiter).join(delimiter));
   });
   const content = BOM + lines.join(CRLF) + CRLF;
   return { content, escaped };
 }
 
 // Export rejected rows to a minimal CSV (subset of columns + reason).
-export function exportRejectedCsv(rejectedRecords) {
+export function exportRejectedCsv(rejectedRecords, { delimiter = DEFAULT_DELIMITER } = {}) {
   const cols = ['full_name', 'profile_url', 'source_search', '__reason'];
   const escaped = [];
-  const header = cols.map((c) => csvQuoteField(c === '__reason' ? 'reason' : c)).join(',');
+  const header = cols.map((c) => csvQuoteField(c === '__reason' ? 'reason' : c, delimiter)).join(delimiter);
   const lines = [header];
   rejectedRecords.forEach((rec) => {
     const cells = cols.map((c) => {
       const g = formulaGuard(flattenValue(rec[c]));
       if (g.escaped) escaped.push({ column: c });
-      return csvQuoteField(g.value);
+      return csvQuoteField(g.value, delimiter);
     });
-    lines.push(cells.join(','));
+    lines.push(cells.join(delimiter));
   });
   return { content: BOM + lines.join(CRLF) + CRLF, escaped };
 }

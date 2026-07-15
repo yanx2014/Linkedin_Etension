@@ -124,15 +124,21 @@ function makeEnricher(job) {
     // Backend enrichment: company research + DeepSeek structuring.
     try {
       const res = await backendEnrich(collectedProfile, { use_deepseek: job.use_deepseek !== false });
+      const firstWarning = Array.isArray(res.warnings) && res.warnings.length
+        ? (res.warnings[0].reason || JSON.stringify(res.warnings[0]))
+        : null;
       return {
         collectedProfile,
         companyEvidence: res.companyEvidence || {},
         llmOutput: res.avatar || res.llmOutput || null,
-        status: res.status || 'complete'
+        status: res.status || 'complete',
+        enrichmentError: res.avatar ? null : firstWarning || `deepseek ${res.status || 'no output'}`
       };
     } catch (err) {
       logger.warn('backend enrichment failed', { reason: err.message });
-      return { collectedProfile, companyEvidence: {}, status: 'failed' };
+      // Surface the HTTP status when present (e.g. 401 bad key, 400 bad request).
+      const detail = err.status ? `http ${err.status}: ${err.message}` : err.message;
+      return { collectedProfile, companyEvidence: {}, status: 'failed', enrichmentError: detail };
     }
   };
 }

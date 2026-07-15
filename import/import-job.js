@@ -25,6 +25,7 @@ export async function runImportPipeline({ records, criteria, seenKeys = [], enri
     let companyEvidence = {};
     let llmOutput = null;
     let enrichmentStatus = 'complete';
+    let enrichmentError = null;
 
     if (enrichProfile) {
       try {
@@ -34,15 +35,23 @@ export async function runImportPipeline({ records, criteria, seenKeys = [], enri
           companyEvidence = res.companyEvidence || {};
           llmOutput = res.llmOutput || null;
           enrichmentStatus = res.status || 'complete';
+          enrichmentError = res.enrichmentError || null;
         }
       } catch (err) {
         enrichmentStatus = 'failed';
+        enrichmentError = err.message;
       }
     } else {
       enrichmentStatus = 'import_only';
     }
 
     const avatar = await buildAvatar({ collectedProfile, companyEvidence, llmOutput, nowMs });
+    // Make the enrichment failure reason visible in the exports (profile_note),
+    // so DeepSeek/backend errors are diagnosable instead of silent.
+    if (enrichmentError) {
+      avatar.profile_note = `${avatar.profile_note ? avatar.profile_note + ' ' : ''}[enrichment: ${enrichmentError}]`;
+      avatar.warnings = [...(avatar.warnings || []), { field: 'enrichment', reason: enrichmentError }];
+    }
 
     // Recompute score now that enrichment evidence is known.
     const md = evaluateMatch(accepted, criteria);

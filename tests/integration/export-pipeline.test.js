@@ -15,7 +15,7 @@ test('CSV header is exact and BOM/CRLF present', async () => {
   const csv = res.exports['profiles_selected.csv'];
   assert.ok(csv.startsWith('﻿'));
   const header = csv.slice(1).split('\r\n')[0];
-  assert.equal(header, CSV_COLUMNS.join(','));
+  assert.equal(header, CSV_COLUMNS.join(';'));
 });
 
 test('formula-like imported values are neutralized', async () => {
