@@ -63,6 +63,12 @@ function slugOf(profileUrl) {
   return m ? m[1] : null;
 }
 
+// Is this a linkedin.com URL? Guards current-page collection to LinkedIn pages.
+function isLinkedInUrl(u) {
+  try { return /(^|\.)linkedin\.com$/i.test(new URL(u).hostname); }
+  catch { return false; }
+}
+
 // Merge collected profile fields onto the preview WITHOUT clobbering non-empty
 // preview values with empty collected ones (task: retain preview values).
 function mergeProfile(preview, collected) {
@@ -99,6 +105,13 @@ async function discoverCurrentPage(job) {
     throw new Error('the LinkedIn tab is no longer available');
   }
 
+  // The collected profile URLs must belong to the LinkedIn page you are on.
+  // Refuse to collect from a non-LinkedIn tab so URLs are always related to the
+  // current search page.
+  if (!isLinkedInUrl(baseUrl)) {
+    throw new Error('open a LinkedIn search/list page in the active tab before collecting URLs');
+  }
+
   const previews = [];
   const seen = new Set();
   let lastDiscoveredTotal = 0;
@@ -127,7 +140,12 @@ async function discoverCurrentPage(job) {
     }
     for (const row of (batch && batch.rows) || []) {
       const key = row.profile_url || row.source_record_id;
-      if (key && !seen.has(key)) { seen.add(key); previews.push(row); }
+      if (key && !seen.has(key)) {
+        // Stamp the origin: each profile URL is tied to the exact LinkedIn page
+        // it was collected from (shown in the CSV source_search column).
+        seen.add(key);
+        previews.push({ ...row, source_search: baseUrl, source_url: baseUrl });
+      }
     }
 
     job.counts = { discovered: previews.length };
@@ -342,7 +360,9 @@ export async function runJob(jobId) {
     // 2. Selection + enrichment + export (reuses the tested pipeline).
     job.state = JobState.SELECTING; await saveJob(job); emitProgress(job);
     const seen = await seenCanonicalUrls();
-    const enricher = job.import_only ? null : makeEnricher(job);
+    // URL-only jobs skip enrichment entirely (no backend, no DeepSeek): we just
+    // want the profile URLs from the current page in the CSV.
+    const enricher = (job.import_only || job.urls_only) ? null : makeEnricher(job);
 
     const result = await runImportPipeline({
       records,

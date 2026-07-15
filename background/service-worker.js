@@ -55,7 +55,20 @@ registerAll({
   },
 
   [MessageTypes.IMPORT_START]: async (payload) => {
-    const { valid, errors, normalized } = validateCriteria(payload.criteria || {});
+    // URL-only mode: collect just the profile URLs from the current LinkedIn
+    // page. Force current_page_only (active tab, no navigation), no DeepSeek,
+    // and no auto-export — the user downloads the CSV on demand.
+    const urlsOnly = !!payload.urls_only;
+    let inputCriteria = payload.criteria || {};
+    if (urlsOnly) {
+      inputCriteria = {
+        ...inputCriteria,
+        collection: { ...(inputCriteria.collection || {}), mode: 'current_page_only', profile_visit: false },
+        enrichment: { ...(inputCriteria.enrichment || {}), use_deepseek: false, auto_enrich: false },
+        automation: { ...(inputCriteria.automation || {}), auto_export: false }
+      };
+    }
+    const { valid, errors, normalized } = validateCriteria(inputCriteria);
     if (!valid) throw new Error(`invalid criteria: ${errors.join('; ')}`);
     const job = await createJob({
       source_type: payload.source_type || 'standard_search',
@@ -68,10 +81,11 @@ registerAll({
       destination_list_id: payload.destination_list_id || null,
       auto_export: normalized.automation.auto_export,
       use_deepseek: normalized.enrichment.use_deepseek,
-      import_only: !!payload.import_only
+      import_only: !!payload.import_only,
+      urls_only: urlsOnly
     });
     runJob(job.id).catch(() => {});
-    return { job_id: job.id };
+    return { job_id: job.id, urls_only: urlsOnly };
   },
 
   [MessageTypes.IMPORT_FILE]: async ({ filename, content, format, criteria }) => {

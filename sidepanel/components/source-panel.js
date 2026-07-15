@@ -26,6 +26,8 @@ export function renderSourcePanel(root, api) {
     </label>
 
     <button id="btn-start-page" class="primary" disabled>Start import from page</button>
+    <button id="btn-urls-only" disabled>Get profile URLs (this page)</button>
+    <p class="muted">Collects only the profile URLs shown on the current LinkedIn page — no profile visits, no enrichment. Download the CSV when you want it.</p>
 
     <h3>Import a file</h3>
     <input id="file" type="file" accept=".csv,.json,.txt">
@@ -66,15 +68,20 @@ export function renderSourcePanel(root, api) {
       const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
       const detect = await api.rpc(api.MessageTypes.DETECT_SOURCE, { url: tab?.url || '' });
       const btn = root.querySelector('#btn-start-page');
+      const urlsBtn = root.querySelector('#btn-urls-only');
       if (detect.supported) {
         setPill('cap-page', detect.source_search || 'supported', 'pill-available');
         btn.disabled = false;
         btn.dataset.sourceType = detect.source_type;
         btn.dataset.sourceUrl = tab.url;
+        urlsBtn.disabled = false;
+        urlsBtn.dataset.sourceType = detect.source_type;
+        urlsBtn.dataset.sourceUrl = tab.url;
         root.querySelector('#page-hint').textContent = `Detected: ${detect.source_search}.`;
       } else {
         setPill('cap-page', 'unsupported', 'pill-unavailable');
         btn.disabled = true;
+        urlsBtn.disabled = true;
       }
     } catch {
       setPill('cap-page', 'unknown', 'pill-unavailable');
@@ -108,6 +115,23 @@ export function renderSourcePanel(root, api) {
         criteria
       });
       api.setMessage(`Import job ${res.job_id.slice(0, 8)} started.`);
+      api.switchView('run');
+    } catch (err) { api.setMessage(err.message, true); }
+  });
+
+  // URL-only collection: profile URLs from the current page, no enrichment,
+  // no auto-download. The user exports the CSV from the job view when ready.
+  root.querySelector('#btn-urls-only').addEventListener('click', async (e) => {
+    const btn = e.currentTarget;
+    try {
+      const [active] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const res = await api.rpc(api.MessageTypes.IMPORT_START, {
+        source_type: btn.dataset.sourceType, source_url: btn.dataset.sourceUrl,
+        active_tab_id: active?.id ?? null,
+        urls_only: true,
+        criteria: api.state.criteria || {}
+      });
+      api.setMessage(`Collecting URLs (job ${res.job_id.slice(0, 8)}). Use “Export results” to download when ready.`);
       api.switchView('run');
     } catch (err) { api.setMessage(err.message, true); }
   });

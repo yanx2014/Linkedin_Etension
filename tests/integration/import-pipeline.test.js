@@ -32,6 +32,34 @@ test('import-only mode selects and enriches without LinkedIn', async () => {
   assert.ok(res.audit.length === 3);
 });
 
+test('URL-only collection: no enricher → CSV has profile_url, no enrichment attempted', async () => {
+  // Shape produced by current_page_only discovery, stamped with the search page.
+  const pageUrl = 'https://www.linkedin.com/search/results/people/?keywords=sales';
+  const previews = [
+    { source_record_id: 'jane', source_type: 'standard_search', full_name: 'Jane Doe',
+      headline: 'VP Sales', profile_url: 'https://www.linkedin.com/in/jane-doe',
+      source_search: pageUrl, source_url: pageUrl },
+    { source_record_id: 'marie', source_type: 'standard_search', full_name: 'Marie Curie',
+      headline: 'Head of Revenue', profile_url: 'https://www.linkedin.com/in/marie-curie',
+      source_search: pageUrl, source_url: pageUrl }
+  ];
+  let enrichCalls = 0;
+  const res = await runImportPipeline({
+    records: previews, criteria, nowMs: NOW, job: { id: 'job-urls', urls_only: true },
+    // URL-only jobs pass no enricher; assert it is never invoked.
+    enrichProfile: null
+  });
+  assert.equal(enrichCalls, 0);
+  assert.equal(res.accepted.length, 2);
+  const csv = res.exports['profiles_selected.csv'];
+  assert.match(csv, /www\.linkedin\.com\/in\/jane-doe/);
+  assert.match(csv, /www\.linkedin\.com\/in\/marie-curie/);
+  // source_search column documents the origin page for each URL.
+  assert.match(csv, /search\/results\/people/);
+  // Enrichment was not attempted.
+  assert.ok(res.audit.every((a) => a.enrichment_status === 'import_only' || a.decision === 'rejected'));
+});
+
 test('every input row appears in the audit', async () => {
   const records = loadSampleRecords();
   const res = await runImportPipeline({ records, criteria, nowMs: NOW, job: { id: 'job-1' } });
