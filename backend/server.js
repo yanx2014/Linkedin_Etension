@@ -3,6 +3,8 @@
 // auth, JSON body limits, security headers, and rate limiting.
 
 import http from 'node:http';
+import { fileURLToPath } from 'node:url';
+import { realpathSync } from 'node:fs';
 import { config } from './config.js';
 import { applyCors, isOriginAllowed } from './security/cors.js';
 import { isAuthorized } from './security/request-auth.js';
@@ -101,8 +103,18 @@ export function createServer(deps = {}) {
   return http.createServer((req, res) => { handleRequest(req, res, deps).catch(() => send(res, 500, { error: 'internal error' })); });
 }
 
-// Start when run directly.
-const isMain = process.argv[1] && import.meta.url === `file://${process.argv[1]}`;
+// Start when run directly. Compare the real on-disk paths (case- and
+// encoding-normalized) instead of URL strings, so this works on Windows
+// (drive-letter casing, %20 in paths) as well as POSIX.
+function isMainModule() {
+  if (!process.argv[1]) return false;
+  try {
+    return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    return false;
+  }
+}
+const isMain = isMainModule();
 if (isMain) {
   const server = createServer();
   server.listen(config.port, config.host, () => {
