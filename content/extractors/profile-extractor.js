@@ -30,6 +30,12 @@ export function extractProfile({ url, document, collectedAt } = {}) {
 
   if (!full_name) warnings.push('missing_name');
 
+  // Capture the visible main-profile text as a resilient evidence source. When
+  // field-level selectors miss (obfuscated markup), the LLM can still extract
+  // grounded role/company/name from this text.
+  const main = queryOne(document, ['main', '#main', '[role="main"]']) || document.body || null;
+  const raw_text = main ? text(main).slice(0, 6000) : '';
+
   return {
     full_name: full_name || '',
     first_name: '',
@@ -40,6 +46,7 @@ export function extractProfile({ url, document, collectedAt } = {}) {
     current_company: current ? current.company : '',
     location: location || '',
     summary: summary || '',
+    raw_text,
     profile_url: url || null,
     experience,
     responsibilities: [],

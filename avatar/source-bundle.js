@@ -68,6 +68,9 @@ export async function buildSourceBundle(collectedProfile, companyEvidence = {}, 
   await addItem(bundle.person.profile_fields, 'PERSON_PROFILE_COMPANY', 'person_profile', p.profile_url, p.company || p.current_company);
   await addItem(bundle.person.profile_fields, 'PERSON_PROFILE_LOCATION', 'person_profile', p.profile_url, p.location);
   await addItem(bundle.person.profile_fields, 'PERSON_PROFILE_ABOUT', 'person_profile', p.profile_url, p.summary || p.about);
+  // Resilient full-text source: the visible profile / search-preview text. Lets
+  // the LLM extract grounded role/company/name when field-level selectors miss.
+  await addItem(bundle.person.profile_fields, 'PERSON_PROFILE_RAWTEXT', 'person_profile', p.profile_url, p.raw_text || p.preview_text);
 
   const experience = Array.isArray(p.experience) ? p.experience : [];
   for (let i = 0; i < experience.length; i++) {

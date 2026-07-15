@@ -28,10 +28,23 @@ export async function buildAvatar({ collectedProfile = {}, companyEvidence = {},
   const { evidence } = await buildSourceBundle(collectedProfile, companyEvidence, { nowMs });
   const warnings = [];
 
-  // --- Deterministic identity, role, company ---
-  const name = pickName(collectedProfile);
-  const role = pickRole(collectedProfile);
-  const company = pickCompany(collectedProfile);
+  // --- Grounding-validate the LLM output once (reused for scalars + arrays) ---
+  let validated = null;
+  if (llmOutput) {
+    const gv = validateGrounding(llmOutput, evidence);
+    validated = gv.validated;
+    warnings.push(...gv.warnings.map((w) => ({ ...w, source: 'grounding' })));
+  }
+
+  // --- Identity, role, company ---
+  // Deterministic profile/experience fields take precedence; when the page scrape
+  // yielded nothing, fall back to the LLM's grounding-validated extraction (which
+  // is cited against the collected visible text, e.g. the search preview / raw
+  // profile text). This keeps facts evidence-backed while filling the CSV columns
+  // even when LinkedIn's obfuscated markup defeats field-level selectors.
+  const name = pickName(collectedProfile) || llmScalar(validated, 'real_professional_name');
+  const role = pickRole(collectedProfile) || llmScalar(validated, 'current_role');
+  const company = pickCompany(collectedProfile) || llmScalar(validated, 'current_company');
   const websiteConfirmed = companyEvidence.website_status === 'confirmed' && companyEvidence.official_website;
   const website = websiteConfirmed ? companyEvidence.official_website : null;
 
@@ -43,14 +56,9 @@ export async function buildAvatar({ collectedProfile = {}, companyEvidence = {},
   const interestTopics = extractInterests(collectedProfile.posts, { max: 5 });
 
   // --- Context arrays: from validated LLM output when present, else deterministic ---
-  let arrays;
-  if (llmOutput) {
-    const { validated, warnings: gw } = validateGrounding(llmOutput, evidence);
-    warnings.push(...gw.map((w) => ({ ...w, source: 'grounding' })));
-    arrays = arraysFromValidated(validated);
-  } else {
-    arrays = deterministicArrays(collectedProfile, companyEvidence, interestTopics);
-  }
+  const arrays = validated
+    ? arraysFromValidated(validated)
+    : deterministicArrays(collectedProfile, companyEvidence, interestTopics);
 
   // --- Hypotheses (always deterministic) ---
   const hyp = generateHypotheses({ role, companyName: company });
@@ -122,6 +130,12 @@ export async function buildAvatar({ collectedProfile = {}, companyEvidence = {},
 }
 
 // --- helpers ---
+
+// Read a grounding-validated scalar field value from the LLM output.
+function llmScalar(validated, field) {
+  const v = validated && validated.person && validated.person[field] && validated.person[field].value;
+  return v && v !== '' ? v : null;
+}
 
 function pickName(p) {
   if (p.first_name && p.last_name) return collapseWhitespace(`${p.first_name} ${p.last_name}`);
