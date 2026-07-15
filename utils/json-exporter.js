@@ -13,7 +13,7 @@ export function buildJobSummary({
   auditEntries,
   exportHashes = {},
   schemaVersions = {},
-  model = { model: 'deepseek-chat' }
+  model = { model: 'deepseek-v4-pro', reasoning_effort: 'max' }
 }) {
   const byDecision = tally(auditEntries, (e) => e.decision);
   const bySource = tally(auditEntries, (e) => e.source_type || 'unknown');

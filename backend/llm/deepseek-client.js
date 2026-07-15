@@ -76,12 +76,21 @@ export class DeepseekClient {
   }
 
   async repair(originalBody, badOutput) {
+    // Single-turn repair: do NOT append an assistant turn. In thinking mode,
+    // DeepSeek requires reasoning_content to be passed back on assistant turns,
+    // and omitting it triggers a 400. Instead, embed the bad output in a fresh
+    // user message so the request stays a valid single reasoning turn.
     const repairBody = {
       ...originalBody,
       messages: [
-        ...originalBody.messages,
-        { role: 'assistant', content: String(badOutput).slice(0, 4000) },
-        { role: 'user', content: 'Your previous message was not valid JSON. Return only valid JSON matching the schema, with no prose. Do not invent any values.' }
+        originalBody.messages[0], // system
+        {
+          role: 'user',
+          content:
+            `${originalBody.messages[1].content}\n\n` +
+            'Your previous attempt was not valid JSON. Return ONLY a single valid JSON object matching the schema, with no prose, no code fences, and no invented values. Previous attempt was:\n' +
+            String(badOutput).slice(0, 3000)
+        }
       ]
     };
     return this.call(repairBody);

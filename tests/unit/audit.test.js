@@ -70,6 +70,6 @@ test('accepted audit carries score and versions', () => {
   const rows = [{ full_name: 'A', headline: 'Sales Lead', profile_url: 'https://www.linkedin.com/in/a' }];
   const { audit } = selectProfiles(rows, criteria);
   assert.equal(audit[0].selector_version, '1');
-  assert.equal(audit[0].model, 'deepseek-chat');
+  assert.equal(audit[0].model, 'deepseek-v4-pro');
   assert.ok(typeof audit[0].score === 'number');
 });

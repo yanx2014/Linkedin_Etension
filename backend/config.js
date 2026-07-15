@@ -27,10 +27,11 @@ export const config = {
   port: Number(process.env.PORT || 8787),
   host: process.env.BIND_HOST || '127.0.0.1',
   deepseekApiKey: process.env.DEEPSEEK_API_KEY || '',
-  // Real DeepSeek models: deepseek-chat (V3, supports JSON mode) or
-  // deepseek-reasoner (R1). The plan's "deepseek-v4-pro" does not exist and made
-  // every call fail; default to deepseek-chat which supports response_format JSON.
-  deepseekModel: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+  // DeepSeek V4 models (2026): deepseek-v4-pro (strongest) / deepseek-v4-flash.
+  // Thinking mode is enabled via `thinking: {type:'enabled'}` + reasoning_effort.
+  // NOTE: thinking mode does NOT support response_format/temperature — those must
+  // be omitted (see backend/llm/avatar-request.js).
+  deepseekModel: process.env.DEEPSEEK_MODEL || 'deepseek-v4-pro',
   deepseekReasoningEffort: process.env.DEEPSEEK_REASONING_EFFORT || 'max',
   deepseekBaseUrl: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
   braveApiKey: process.env.BRAVE_SEARCH_API_KEY || '',

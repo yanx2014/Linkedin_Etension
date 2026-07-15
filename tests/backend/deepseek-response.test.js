@@ -21,15 +21,22 @@ test('validateStructure accepts the valid fixture and rejects malformed', () => 
   assert.equal(validateStructure({ person: {} , company: { company_context: 'nope' } }).valid, false);
 });
 
-test('deepseek request uses valid DeepSeek API parameters', () => {
+test('deepseek request uses V4 thinking-mode parameters (no response_format/temperature)', () => {
   const body = buildDeepseekRequest({ hello: 'world' });
-  assert.equal(body.model, 'deepseek-chat');
-  assert.deepEqual(body.response_format, { type: 'json_object' });
-  assert.equal(body.temperature, 0);
-  // Invalid/fictional params must NOT be sent (they made every call fail).
-  assert.ok(!('thinking' in body), 'thinking is not a DeepSeek param');
-  assert.ok(!('reasoning_effort' in body), 'reasoning_effort is not a DeepSeek param');
+  assert.equal(body.model, 'deepseek-v4-pro');
+  assert.deepEqual(body.thinking, { type: 'enabled' });
+  assert.equal(body.reasoning_effort, 'max');
+  // Thinking mode does NOT support these — including them made every call fail.
+  assert.ok(!('response_format' in body), 'response_format unsupported in thinking mode');
+  assert.ok(!('temperature' in body), 'temperature unsupported in thinking mode');
   assert.equal(body.messages.length, 2);
+});
+
+test('parseModelJson extracts a JSON object wrapped in prose/code fences', async () => {
+  const { parseModelJson } = await import('../../backend/llm/response-validator.js');
+  assert.equal(parseModelJson('```json\n{"a":1}\n```').ok, true);
+  assert.equal(parseModelJson('Here is the result: {"a":1} done').value.a, 1);
+  assert.equal(parseModelJson('no json here').ok, false);
 });
 
 test('validateResponse grounds against the evidence map and drops unsupported facts', async () => {

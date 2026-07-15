@@ -73,7 +73,7 @@ export async function runImportPipeline({ records, criteria, seenKeys = [], enri
       profile_url: accepted.canonical_url,
       confidence: avatar.confidence,
       coverage: avatar.coverage,
-      model: { model: 'deepseek-chat' },
+      model: { model: 'deepseek-v4-pro', reasoning_effort: 'max' },
       evidence_map: avatar.evidence_map,
       warnings: avatar.warnings,
       avatar_model: avatar.model

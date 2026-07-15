@@ -4,13 +4,27 @@
 
 import { validateGrounding } from '../../avatar/grounding-validator.js';
 
-// Parse a raw model string into JSON. Returns { ok, value, error }.
+// Parse a raw model string into JSON. Tolerant of thinking-mode output that may
+// wrap the JSON in prose or code fences: tries a direct parse, then extracts the
+// outermost {...} object. Returns { ok, value, error }.
 export function parseModelJson(raw) {
   if (raw && typeof raw === 'object') return { ok: true, value: raw };
+  const s = String(raw == null ? '' : raw).trim();
   try {
-    return { ok: true, value: JSON.parse(String(raw)) };
-  } catch (e) {
-    return { ok: false, error: e.message };
+    return { ok: true, value: JSON.parse(s) };
+  } catch {
+    // Strip code fences and extract the first balanced { ... } block.
+    const stripped = s.replace(/```(?:json)?/gi, '');
+    const start = stripped.indexOf('{');
+    const end = stripped.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      try {
+        return { ok: true, value: JSON.parse(stripped.slice(start, end + 1)) };
+      } catch (e) {
+        return { ok: false, error: e.message };
+      }
+    }
+    return { ok: false, error: 'no JSON object found in model output' };
   }
 }
 
