@@ -12,40 +12,46 @@ import { validateCriteria } from '../../utils/validation.js';
 const here = dirname(fileURLToPath(import.meta.url));
 const load = (name) => parseHtml(readFileSync(join(here, '..', 'fixtures', name), 'utf8'));
 
-test('generic extractor finds people by /in/ links on obfuscated markup', () => {
+test('one primary person per card; mutual connections are ignored', () => {
   const doc = load('linkedin-search-obfuscated.html');
   const rows = extractGenericPeople(doc);
-  assert.equal(rows.length, 3);
-  assert.equal(rows[0].full_name, 'Frédéric ALLOUCH');
-  assert.equal(rows[0].profile_url, 'https://www.linkedin.com/in/frederic-allouch-sample?miniProfileUrn=urn:li:x');
-  // Card text (role/company/location) is captured for matching.
-  assert.match(rows[0].preview_text, /NERYTEC CONSULTING/);
-  assert.match(rows[0].preview_text, /Cabinet de recrutement/);
+  // Only the two main results — not Philippe/Florence/Patrice (mutual connections).
+  assert.equal(rows.length, 2);
+  const names = rows.map((r) => r.full_name);
+  assert.ok(names.includes('Frédéric ALLOUCH'));
+  assert.ok(names.includes('Abdoulaye YEHIYA'));
+  assert.ok(!names.includes('Philippe Duranté'));
 });
 
-test('standard_search adapter falls back to generic extraction when classes do not match', () => {
+test('name is clean (no degree marker or card text pollution)', () => {
+  const doc = load('linkedin-search-obfuscated.html');
+  const rows = extractGenericPeople(doc);
+  const fred = rows.find((r) => r.full_name.startsWith('Frédéric'));
+  assert.equal(fred.full_name, 'Frédéric ALLOUCH');
+  assert.doesNotMatch(fred.full_name, /2e|chef d'entreprise/);
+  // Role/company text is still available for matching via preview_text.
+  assert.match(fred.preview_text, /NERYTEC CONSULTING/);
+});
+
+test('profile_url is the real canonical /in/ link', () => {
+  const doc = load('linkedin-search-obfuscated.html');
+  const rows = extractGenericPeople(doc);
+  const fred = rows.find((r) => r.full_name.startsWith('Frédéric'));
+  assert.match(fred.profile_url, /\/in\/frederic-allouch-177b961a/);
+});
+
+test('adapter falls back to generic extraction and feeds the selector', () => {
   const doc = load('linkedin-search-obfuscated.html');
   const rows = standardSearch.collectPreviewRows({
-    url: 'https://www.linkedin.com/search/results/people/?keywords=dirigeant%20cabinet%20de%20recrutement',
+    url: 'https://www.linkedin.com/search/results/people/?keywords=recrutement',
     document: doc,
     limit: 50
   });
-  assert.equal(rows.length, 3);
-  assert.ok(rows.every((r) => r.profile_url.includes('/in/')));
-});
-
-test('end-to-end: obfuscated search rows flow through the selector and match criteria', () => {
-  const doc = load('linkedin-search-obfuscated.html');
-  const rows = standardSearch.collectPreviewRows({
-    url: 'https://www.linkedin.com/search/results/people/',
-    document: doc,
-    limit: 50
-  });
+  assert.equal(rows.length, 2);
   const criteria = validateCriteria({
     preview_required_groups: [{ name: 'function', terms: ['recrutement', 'recruitment'] }],
     max_profiles: 50
   }).normalized;
   const { accepted } = selectProfiles(rows, criteria);
-  // All three mention "recrutement" in their card text -> all accepted.
-  assert.equal(accepted.length, 3);
+  assert.equal(accepted.length, 2);
 });
