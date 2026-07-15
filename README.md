@@ -188,8 +188,13 @@ no enrichment, no auto-download (export the CSV yourself when ready). It honors
 the collection mode:
 
 - **Current page only:** reads the URLs on the page you are viewing.
-- **Background search pages:** walks pages **1, 2, 3 … X** until it reaches the
-  **Max profile URLs (Y)** you set (or runs out of pages / hits a checkpoint).
+- **Background search pages:** walks pages **1, 2, 3 … X** (by navigating
+  `?page=N` in a background tab) until it reaches the **Max profile URLs (Y)**
+  you set, or two consecutive pages return no new results, or a checkpoint
+  appears. Each page is scrolled to force all ~10 lazily-rendered cards to mount
+  before extraction. **Setting Y above ~10 automatically uses this mode** — a
+  single LinkedIn search page only holds ~10 results, so reaching 100/300
+  requires walking pages.
 
 **Deduplication** is enforced at two levels so the same URL is never collected
 twice: within a run, every canonical `/in/` URL is remembered across pages; and

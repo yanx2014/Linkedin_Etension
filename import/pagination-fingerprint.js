@@ -36,6 +36,33 @@ export function isNewPage(seenKeys, url, fingerprint) {
   return true;
 }
 
+// Build the URL for page N of a LinkedIn search by setting the `page` query
+// param. LinkedIn people/search results paginate via ?page=N (10 results each),
+// so navigating by URL is more reliable than clicking a lazy "Next" button —
+// especially in a background tab.
+export function buildSearchPageUrl(base, page) {
+  const n = Math.max(1, Math.floor(Number(page) || 1));
+  try {
+    const u = new URL(base);
+    u.searchParams.set('page', String(n));
+    return u.toString();
+  } catch {
+    const [path, hash] = String(base || '').split('#');
+    let p = path.replace(/([?&])page=\d+/i, `$1page=${n}`);
+    if (!/[?&]page=/i.test(p)) p += (p.includes('?') ? '&' : '?') + `page=${n}`;
+    return hash ? `${p}#${hash}` : p;
+  }
+}
+
+// The starting page number encoded in a search URL (defaults to 1).
+export function pageOf(url) {
+  try { return Math.max(1, parseInt(new URL(url).searchParams.get('page') || '1', 10) || 1); }
+  catch {
+    const m = String(url || '').match(/[?&]page=(\d+)/i);
+    return m ? Math.max(1, parseInt(m[1], 10)) : 1;
+  }
+}
+
 function normalizeUrl(u) {
   const s = String(u || '');
   try {

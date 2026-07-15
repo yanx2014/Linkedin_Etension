@@ -129,8 +129,13 @@ export function renderSourcePanel(root, api) {
     const btn = e.currentTarget;
     try {
       const [active] = await chrome.tabs.query({ active: true, currentWindow: true });
-      const mode = modeSel.value;
       const target = Math.max(1, Math.min(999, parseInt(root.querySelector('#urls-target').value, 10) || 100));
+      // LinkedIn search shows ~10 results per page, so any target beyond a single
+      // page REQUIRES walking pages. Auto-select background paging when the user
+      // asks for more than one page's worth — otherwise a "current page only" run
+      // can never exceed ~10 URLs (this is why an earlier run stopped at 4).
+      const ONE_PAGE = 10;
+      const mode = target > ONE_PAGE ? 'background_search_pages' : modeSel.value;
       const criteria = {
         ...(api.state.criteria || {}),
         max_profiles: target,
@@ -146,7 +151,7 @@ export function renderSourcePanel(root, api) {
         urls_only: true,
         criteria
       });
-      const how = mode === 'background_search_pages' ? `up to ${target} across pages` : 'from this page';
+      const how = mode === 'background_search_pages' ? `up to ${target} across pages 1, 2, 3 …` : 'from this page';
       api.setMessage(`Collecting URLs ${how} (job ${res.job_id.slice(0, 8)}). Use “Export results” to download when ready.`);
       api.switchView('run');
     } catch (err) { api.setMessage(err.message, true); }

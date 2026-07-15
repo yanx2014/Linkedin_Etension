@@ -45,6 +45,11 @@
         await m.stability.waitForStable(document);
         const adapter = detectAdapter({ url, document });
         if (!adapter) return fail(message.requestId, 'UNSUPPORTED_LAYOUT', 'no adapter for page');
+        // LinkedIn lazily mounts result cards as the page scrolls; without this,
+        // extraction sees only the few cards initially rendered (this is why a
+        // run could stop at ~4). Scroll the page until the profile-link count
+        // stops growing so every card on the page is present before extracting.
+        await loadAllRendered(m);
         try {
           const rows = adapter.collectPreviewRows({ url, document, limit: message.payload?.limit || 500 });
           const hasNext = !!(adapter.findNextPageControl && adapter.findNextPageControl({ document }));
@@ -89,6 +94,27 @@
       default:
         return fail(message.requestId, 'UNKNOWN_TYPE', `unknown ${message.type}`);
     }
+  }
+
+  // Scroll the page in steps until the count of profile links stops growing
+  // (LinkedIn mounts result cards lazily). Bounded by iterations/time so it can
+  // never loop forever; scrolls back to top afterward so pagination controls and
+  // the next navigation start from a consistent position.
+  async function loadAllRendered(m, { maxSteps = 15 } = {}) {
+    const count = () => document.querySelectorAll('a[href*="/in/"]').length;
+    let stable = 0;
+    for (let i = 0; i < maxSteps && stable < 2; i++) {
+      const before = count();
+      try { m.pageState.scrollStep(null); } catch { /* ignore */ }
+      // eslint-disable-next-line no-await-in-loop
+      await m.stability.waitForStable(document, { quietMs: 350, maxMs: 2500 });
+      if (count() <= before) stable += 1; else stable = 0;
+    }
+    try {
+      const top = document.scrollingElement || document.documentElement;
+      if (top) top.scrollTop = 0;
+      window.scrollTo(0, 0);
+    } catch { /* ignore */ }
   }
 
   function errToFail(requestId, err) {

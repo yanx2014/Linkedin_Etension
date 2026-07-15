@@ -1,6 +1,25 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { resultFingerprint, validatePaginationTransition, isUsableNextControl, isNewPage } from '../../import/pagination-fingerprint.js';
+import { resultFingerprint, validatePaginationTransition, isUsableNextControl, isNewPage, buildSearchPageUrl, pageOf } from '../../import/pagination-fingerprint.js';
+
+test('buildSearchPageUrl sets/replaces the page query param', () => {
+  assert.equal(
+    buildSearchPageUrl('https://www.linkedin.com/search/results/people/?keywords=sales', 2),
+    'https://www.linkedin.com/search/results/people/?keywords=sales&page=2'
+  );
+  // Replaces an existing page param rather than duplicating it.
+  assert.equal(
+    buildSearchPageUrl('https://www.linkedin.com/search/results/people/?keywords=sales&page=2', 5),
+    'https://www.linkedin.com/search/results/people/?keywords=sales&page=5'
+  );
+  // Clamps to >= 1.
+  assert.match(buildSearchPageUrl('https://x.com/s?q=a', 0), /page=1/);
+});
+
+test('pageOf reads the starting page (default 1)', () => {
+  assert.equal(pageOf('https://www.linkedin.com/search/results/people/?keywords=x'), 1);
+  assert.equal(pageOf('https://www.linkedin.com/search/results/people/?keywords=x&page=7'), 7);
+});
 
 test('resultFingerprint is deterministic and order-independent', () => {
   assert.equal(resultFingerprint(['b', 'a', 'c']), resultFingerprint(['c', 'b', 'a']));

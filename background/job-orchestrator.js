@@ -6,7 +6,7 @@
 import { makeRequest } from '../utils/messages.js';
 import { runImportPipeline } from '../import/import-job.js';
 import { decideNextAction } from '../import/paginator.js';
-import { resultFingerprint, validatePaginationTransition, isNewPage } from '../import/pagination-fingerprint.js';
+import { buildSearchPageUrl, pageOf } from '../import/pagination-fingerprint.js';
 import { getJob, saveJob, JobState } from '../storage/jobs-repository.js';
 import { upsertContact, seenCanonicalUrls } from '../storage/contacts-repository.js';
 import { appendAuditBatch } from '../storage/audit-repository.js';
@@ -58,12 +58,6 @@ function profileVisitEnabled(job) {
 function samePage(a, b) {
   try { return new URL(a).pathname === new URL(b).pathname; }
   catch { return String(a) === String(b); }
-}
-
-// Canonical /in/ slug from a profile URL (for the pagination fingerprint).
-function slugOf(profileUrl) {
-  const m = String(profileUrl || '').match(/\/in\/([^/?#]+)/);
-  return m ? m[1] : null;
 }
 
 // Is this a linkedin.com URL? Guards current-page collection to LinkedIn pages.
@@ -188,102 +182,68 @@ async function discoverCurrentPage(job) {
   return previews;
 }
 
-// background_search_pages (opt-in): one inactive worker tab, navigating
-// search-result pages only. Discovery walks pages with bounded pagination.
+// background_search_pages (opt-in): one inactive worker tab. Walks search-result
+// pages by URL (?page=N) until it reaches the target (max_profiles) or runs out
+// of results. Navigating by URL is far more reliable than clicking a lazy "Next"
+// button in a background tab, which was capping runs at a single partial page.
 async function discoverBackgroundPages(job) {
   const tabId = await ensureWorkerTab(job.source_url);
-  await navigate(tabId, job.source_url);
+  const target = job.max_profiles || 500;
 
   const previews = [];
   const seen = new Set();
-  const seenPages = new Set(); // (url|fingerprint) pages already processed
-  let lastDiscoveredTotal = 0;
-  let noGrowthAttempts = 0;
-  let blocked = false;
-  let lastFingerprint = null;
+  let emptyPages = 0;      // consecutive pages that added nothing new
+  let startPage = pageOf(job.source_url);
 
-  // Loop pages/scrolls until a stop condition.
-  // Bound the loop hard to avoid runaway behaviour. Any messaging failure stops
-  // discovery gracefully with whatever previews were already collected — it must
-  // never fail the whole job (we can still enrich + export what we have).
-  for (let step = 0; step < 200; step++) {
+  // Hard page cap: LinkedIn people search exposes ~100 pages max; bound anyway.
+  const MAX_PAGES = 120;
+  for (let i = 0; i < MAX_PAGES && previews.length < target; i++) {
     const control = await refreshControl(job);
     if (control.cancelled || control.paused) break;
 
-    let batch = { rows: [], hasNext: false, hasScroll: false };
-    try {
-      batch = await sendToTab(tabId, makeRequest('CS_COLLECT_PREVIEWS', { url: job.source_url, sourceType: job.source_type, limit: job.max_profiles || 500 }));
-    } catch (err) {
-      if (isBlockedError(err)) { blocked = true; }
-      else { logger.warn('preview collection failed; stopping discovery', { reason: err.message }); break; }
-    }
-    // Read the tab's current URL first so each row can be stamped with the exact
-    // page it came from (documents origin; also the fingerprint's page key).
-    let currentUrl = job.source_url;
-    try { currentUrl = (await chrome.tabs.get(tabId))?.url || job.source_url; } catch { /* keep source_url */ }
+    const pageNum = startPage + i;
+    const pageUrl = buildSearchPageUrl(job.source_url, pageNum);
 
+    try {
+      await navigate(tabId, pageUrl);
+    } catch (err) {
+      if (isBlockedError(err)) { markJobBlocked(job, { phase: 'discovery' }); break; }
+      logger.warn('page navigation failed; stopping discovery', { reason: err.message, page: pageNum });
+      break;
+    }
+
+    let batch = { rows: [] };
+    try {
+      batch = await sendToTab(tabId, makeRequest('CS_COLLECT_PREVIEWS', { url: pageUrl, sourceType: job.source_type, limit: target }));
+    } catch (err) {
+      if (isBlockedError(err)) { markJobBlocked(job, { phase: 'discovery' }); break; }
+      // A page that yields no adapter match is treated as the end of results,
+      // not a hard failure — stop after a couple of empty pages.
+      logger.warn('preview collection failed on page; treating as empty', { reason: err.message, page: pageNum });
+      if (++emptyPages >= 2) break; else continue;
+    }
+
+    let added = 0;
     for (const row of (batch && batch.rows) || []) {
       const key = row.profile_url || row.source_record_id;
-      // Dedup across ALL pages in this run by canonical profile URL.
       if (key && !seen.has(key)) {
         seen.add(key);
-        previews.push({ ...row, source_search: currentUrl });
+        previews.push({ ...row, source_search: pageUrl });
+        added += 1;
+        if (previews.length >= target) break;
       }
     }
 
-    // Deterministic result fingerprint (from the rendered slugs) — a robust
-    // stall signal: if a page turn yields the same fingerprint, the page did
-    // not actually advance even if a "next" control is present.
-    const slugs = (batch && batch.rows ? batch.rows : []).map((r) => slugOf(r.profile_url)).filter(Boolean);
-    const fingerprint = resultFingerprint(slugs);
-    const freshPage = isNewPage(seenPages, currentUrl, fingerprint);
-    const transition = lastFingerprint == null
-      ? { changed: true, reason: 'first_page' }
-      : validatePaginationTransition({ beforeFingerprint: lastFingerprint, afterFingerprint: fingerprint });
-    lastFingerprint = fingerprint;
-
-    // Persist progress immediately so counts survive even if a later step fails.
+    // Persist progress after every page so counts survive a restart.
     job.counts = { discovered: previews.length };
     await saveJob(job);
     emitProgress(job);
 
-    // Treat a stalled fingerprint / already-seen page as "no growth" so the
-    // bounded stop logic converges even when a stale "next" control lingers.
-    const stalled = !freshPage || transition.reason === 'stalled';
-
-    const decision = decideNextAction({
-      acceptedCount: previews.length,
-      maxProfiles: job.max_profiles || 500,
-      discoveredTotal: previews.length,
-      lastDiscoveredTotal,
-      noGrowthAttempts,
-      hasNextControl: !!(batch && batch.hasNext) && !stalled,
-      hasScrollContainer: !!(batch && batch.hasScroll) && !stalled,
-      blocked,
-      cancelled: control.cancelled,
-      paused: control.paused
-    });
-    lastDiscoveredTotal = previews.length;
-    noGrowthAttempts = decision.noGrowthAttempts ?? noGrowthAttempts;
-
-    if (decision.action === 'stop' || decision.action === 'pause') {
-      if (decision.reason === 'blocked') markJobBlocked(job, { phase: 'discovery' });
-      break;
-    }
-    try {
-      if (decision.action === 'next') {
-        await sendToTab(tabId, makeRequest('CS_NEXT_PAGE', { url: job.source_url }));
-      } else if (decision.action === 'scroll') {
-        await sendToTab(tabId, makeRequest('CS_SCROLL', { url: job.source_url }));
-      }
-    } catch (err) {
-      // Page-turn/scroll re-render closed the message channel — stop discovery
-      // with the previews collected so far rather than failing the job.
-      logger.warn('pagination/scroll failed; continuing with collected previews', { reason: err.message });
-      break;
-    }
+    // End of results: two consecutive pages with no new unique URLs.
+    if (added === 0) { if (++emptyPages >= 2) break; } else { emptyPages = 0; }
   }
-  return previews;
+
+  return previews.slice(0, target);
 }
 
 // Build the enrichment function for connected mode.
