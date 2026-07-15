@@ -70,7 +70,10 @@ export function buildFallbackOutreach({ firstName, role, company, postTopic } = 
   } else if (company && company !== 'Not determinable') {
     clauses.push(`I noticed your work at ${company}`);
   }
-  if (postTopic) clauses.push(`your recent comments about ${postTopic}`);
+  // Only mention a post topic when it is a substantial multi-word phrase. A
+  // lone noise word ("ville", "plus") reads as broken ("...about ville."), so
+  // we drop it and rely on the role/company anchor (or emit no message).
+  if (postTopic && isSubstantialTopic(postTopic)) clauses.push(`your recent post about ${postTopic}`);
 
   if (clauses.length === 0) return null; // no verified anchor -> no message
 
@@ -82,6 +85,14 @@ export function buildFallbackOutreach({ firstName, role, company, postTopic } = 
     return shorter;
   }
   return message;
+}
+
+// A topic is substantial enough to name in outreach only when it is a
+// multi-word phrase (e.g. "enterprise sales pipeline"). Single tokens from
+// deterministic post extraction are too ambiguous to quote.
+function isSubstantialTopic(topic) {
+  const words = String(topic || '').trim().split(/\s+/).filter(Boolean);
+  return words.length >= 2;
 }
 
 export { MAX_WORDS };
