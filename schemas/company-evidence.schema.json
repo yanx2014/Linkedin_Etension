@@ -1,0 +1,43 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CompanyEvidence",
+  "type": "object",
+  "properties": {
+    "name": { "type": ["string", "null"] },
+    "website_status": { "enum": ["confirmed", "unconfirmed", "absent"] },
+    "official_website": { "type": ["string", "null"] },
+    "website_pages": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "url": { "type": "string" },
+          "title": { "type": "string" },
+          "description": { "type": "string" },
+          "headings": { "type": "array", "items": { "type": "string" } },
+          "paragraphs": { "type": "array", "items": { "type": "string" } },
+          "retrieved_at": { "type": ["string", "null"] }
+        }
+      }
+    },
+    "profile_fields": { "type": "array" },
+    "posts": { "type": "array", "maxItems": 7 },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "fact_id": { "type": "string" },
+          "entity_type": { "const": "company" },
+          "field": { "type": "string" },
+          "value": { "type": "string" },
+          "source_type": { "type": "string" },
+          "source_url": { "type": ["string", "null"] },
+          "supporting_excerpt": { "type": "string" },
+          "content_hash": { "type": "string" },
+          "confidence": { "type": "number" }
+        }
+      }
+    }
+  }
+}

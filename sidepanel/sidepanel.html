@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prospect Tool Workspace</title>
+  <link rel="stylesheet" href="sidepanel.css">
+</head>
+<body>
+  <nav class="tabs" role="tablist" aria-label="Workspace views">
+    <button role="tab" class="tab active" data-view="sources" aria-selected="true">Sources</button>
+    <button role="tab" class="tab" data-view="criteria" aria-selected="false">Criteria</button>
+    <button role="tab" class="tab" data-view="run" aria-selected="false">Run</button>
+    <button role="tab" class="tab" data-view="contacts" aria-selected="false">Results</button>
+    <button role="tab" class="tab" data-view="settings" aria-selected="false">Settings</button>
+  </nav>
+
+  <main id="view-root" class="view-root" tabindex="-1" aria-live="polite"></main>
+
+  <p id="global-message" class="global-message" role="status"></p>
+
+  <script type="module" src="sidepanel.js"></script>
+</body>
+</html>

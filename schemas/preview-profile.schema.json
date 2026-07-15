@@ -1,0 +1,17 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "PreviewProfile",
+  "type": "object",
+  "properties": {
+    "source_type": { "type": "string" },
+    "source_record_id": { "type": ["string", "null"] },
+    "profile_url": { "type": ["string", "null"] },
+    "source_url": { "type": ["string", "null"] },
+    "source_search": { "type": ["string", "null"] },
+    "full_name": { "type": "string" },
+    "headline": { "type": "string" },
+    "current_company": { "type": "string" },
+    "location": { "type": "string" },
+    "source_specific": { "type": "boolean" }
+  }
+}

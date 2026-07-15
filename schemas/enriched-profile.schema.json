@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EnrichedProfileCsvRow",
+  "type": "object",
+  "required": [
+    "full_name", "headline", "company", "location", "profile_url", "source_search",
+    "collected_at", "last_name", "first_name", "role", "email", "website", "score",
+    "avatar_profile", "profile_note"
+  ],
+  "properties": {
+    "full_name": { "type": "string" },
+    "headline": { "type": "string" },
+    "company": { "type": "string" },
+    "location": { "type": "string" },
+    "profile_url": { "type": "string" },
+    "source_search": { "type": "string" },
+    "collected_at": { "type": "string" },
+    "last_name": { "type": "string" },
+    "first_name": { "type": "string" },
+    "role": { "type": "string" },
+    "email": { "type": "string" },
+    "website": { "type": "string" },
+    "score": { "type": "number" },
+    "avatar_profile": { "type": "string" },
+    "profile_note": { "type": "string" }
+  }
+}

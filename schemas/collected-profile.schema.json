@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "CollectedProfile",
+  "type": "object",
+  "properties": {
+    "full_name": { "type": "string" },
+    "first_name": { "type": "string" },
+    "last_name": { "type": "string" },
+    "headline": { "type": "string" },
+    "role": { "type": "string" },
+    "company": { "type": "string" },
+    "current_company": { "type": "string" },
+    "location": { "type": "string" },
+    "summary": { "type": "string" },
+    "profile_url": { "type": ["string", "null"] },
+    "canonical_url": { "type": ["string", "null"] },
+    "email": { "type": "string" },
+    "experience": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "company": { "type": "string" },
+          "start_date": { "type": ["string", "null"] },
+          "end_date": { "type": ["string", "null"] },
+          "is_current": { "type": ["boolean", "null"] },
+          "description": { "type": "string" }
+        }
+      }
+    },
+    "responsibilities": { "type": "array", "items": { "type": "string" } },
+    "posts": {
+      "type": "array",
+      "maxItems": 7,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": { "type": ["string", "null"] },
+          "text": { "type": "string" },
+          "created_at": { "type": ["string", "null"] },
+          "source_url": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

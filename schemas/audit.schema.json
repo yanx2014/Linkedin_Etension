@@ -1,0 +1,28 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "AuditEntry",
+  "type": "object",
+  "required": ["input_index", "decision", "reasons"],
+  "properties": {
+    "input_index": { "type": "integer" },
+    "source_type": { "type": ["string", "null"] },
+    "source_url": { "type": ["string", "null"] },
+    "original_url": { "type": ["string", "null"] },
+    "canonical_url": { "type": ["string", "null"] },
+    "decision": { "enum": ["accepted", "rejected"] },
+    "reasons": { "type": "array", "items": { "type": "string" } },
+    "matched_groups": { "type": "object" },
+    "matched_required_terms": { "type": "array" },
+    "matched_excluded_terms": { "type": "array" },
+    "score": { "type": "number" },
+    "score_breakdown": { "type": "array" },
+    "duplicate_of": { "type": ["integer", "null"] },
+    "collection_status": { "type": "string" },
+    "enrichment_status": { "type": "string" },
+    "warnings": { "type": "array" },
+    "collected_at": { "type": "string" },
+    "selector_version": { "type": "string" },
+    "prompt_version": { "type": "string" },
+    "model": { "type": "string" }
+  }
+}

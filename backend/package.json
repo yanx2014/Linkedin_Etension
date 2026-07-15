@@ -1,0 +1,15 @@
+{
+  "name": "prospect-tool-backend",
+  "version": "1.0.0",
+  "description": "Local enrichment backend: company web search, SSRF-safe website retrieval, and DeepSeek structuring. Holds all API keys; the extension never sees them.",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test ../tests/backend/*.test.js"
+  },
+  "dependencies": {}
+}

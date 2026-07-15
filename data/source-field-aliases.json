@@ -1,0 +1,15 @@
+{
+  "profile_url": ["url", "linkedin_url", "linkedinurl", "profileurl", "profile", "public_profile_url"],
+  "role": ["job_title", "title", "position", "jobtitle"],
+  "company": ["organization", "employer", "company_name", "current_company"],
+  "company_website": ["company_url", "domain", "website", "companywebsite", "company_domain"],
+  "full_name": ["name", "fullname", "full name"],
+  "first_name": ["firstname", "given_name", "first"],
+  "last_name": ["lastname", "surname", "family_name", "last"],
+  "headline": ["title_headline", "tagline"],
+  "location": ["city", "region", "geo", "country"],
+  "email": ["email_address", "work_email", "mail"],
+  "posts": ["activity", "activities", "recent_posts"],
+  "summary": ["about", "bio", "description"],
+  "company_linkedin_url": ["company_linkedin", "org_linkedin_url"]
+}

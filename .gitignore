@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+backend/node_modules/
+
+# Environment / secrets
+.env
+backend/.env
+*.local
+
+# Local databases and data stores
+backend/data/*.sqlite
+backend/data/*.sqlite-journal
+backend/data/*.sqlite-wal
+backend/data/*.sqlite-shm
+data/enrichment.sqlite
+
+# Build output
+dist/
+*.zip
+
+# Logs
+*.log
+logs/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Test artifacts
+coverage/
+tmp/

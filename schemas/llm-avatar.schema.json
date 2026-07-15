@@ -1,0 +1,54 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LlmAvatar",
+  "type": "object",
+  "required": ["person", "company"],
+  "definitions": {
+    "citedValue": {
+      "type": "object",
+      "properties": {
+        "value": { "type": ["string", "null"] },
+        "source_ids": { "type": "array", "items": { "type": "string" } }
+      }
+    }
+  },
+  "properties": {
+    "person": {
+      "type": "object",
+      "properties": {
+        "real_professional_name": { "$ref": "#/definitions/citedValue" },
+        "current_role": { "$ref": "#/definitions/citedValue" },
+        "professional_experience": { "$ref": "#/definitions/citedValue" },
+        "current_company": { "$ref": "#/definitions/citedValue" },
+        "verified_responsibilities": { "type": "array", "items": { "$ref": "#/definitions/citedValue" } },
+        "verified_professional_interests": { "type": "array", "items": { "$ref": "#/definitions/citedValue" } },
+        "observed_prospect_facts": { "type": "array", "items": { "$ref": "#/definitions/citedValue" } }
+      }
+    },
+    "company": {
+      "type": "object",
+      "properties": {
+        "official_website": {
+          "type": "object",
+          "properties": {
+            "value": { "type": ["string", "null"] },
+            "status": { "enum": ["confirmed", "unconfirmed", "absent"] },
+            "source_ids": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "company_context": { "type": "array", "items": { "$ref": "#/definitions/citedValue" } },
+        "verified_company_priorities": { "type": "array", "items": { "$ref": "#/definitions/citedValue" } },
+        "observed_company_facts": { "type": "array", "items": { "$ref": "#/definitions/citedValue" } }
+      }
+    },
+    "outreach": {
+      "type": "object",
+      "properties": {
+        "suggested_message": { "type": ["string", "null"] },
+        "source_ids": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "limitations": { "type": "array", "items": { "type": "string" } },
+    "confidence_inputs": { "type": "object" }
+  }
+}

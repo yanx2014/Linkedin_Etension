@@ -1,0 +1,51 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Criteria",
+  "type": "object",
+  "additionalProperties": true,
+  "properties": {
+    "search_keywords": { "type": "string" },
+    "preview_required_groups": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "terms"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "terms": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+    "preview_required_terms": { "type": "array", "items": { "type": "string" } },
+    "preview_excluded_terms": { "type": "array", "items": { "type": "string" } },
+    "max_profiles": { "type": "integer", "minimum": 1, "maximum": 999 },
+    "allowed_profile_hosts": { "type": "array", "items": { "type": "string" } },
+    "collection": {
+      "type": "object",
+      "properties": {
+        "collect_profile_details": { "type": "boolean" },
+        "collect_person_posts": { "type": "boolean" },
+        "max_person_posts": { "type": "integer", "minimum": 0, "maximum": 7 },
+        "collect_company_profile": { "type": "boolean" },
+        "collect_company_posts": { "type": "boolean" },
+        "max_company_posts": { "type": "integer", "minimum": 0, "maximum": 7 }
+      }
+    },
+    "enrichment": {
+      "type": "object",
+      "properties": {
+        "company_website_first": { "type": "boolean" },
+        "use_company_profile_fallback": { "type": "boolean" },
+        "use_deepseek": { "type": "boolean" },
+        "auto_enrich": { "type": "boolean" }
+      }
+    },
+    "automation": {
+      "type": "object",
+      "properties": {
+        "auto_export": { "type": "boolean" },
+        "schedule": { "enum": ["disabled", "daily", "weekly", "monthly"] }
+      }
+    }
+  }
+}

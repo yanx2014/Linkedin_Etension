@@ -1,0 +1,35 @@
+{
+  "search_keywords": "enterprise sales leadership",
+  "preview_required_groups": [
+    {
+      "name": "decision makers",
+      "terms": ["founder", "co-founder", "chief executive officer", "ceo", "head of sales", "vp sales", "sales director"]
+    },
+    {
+      "name": "function",
+      "terms": ["sales", "revenue", "business development", "go-to-market"]
+    }
+  ],
+  "preview_required_terms": [],
+  "preview_excluded_terms": ["recruiter", "student", "intern"],
+  "max_profiles": 500,
+  "allowed_profile_hosts": ["linkedin.com", "www.linkedin.com"],
+  "collection": {
+    "collect_profile_details": true,
+    "collect_person_posts": true,
+    "max_person_posts": 7,
+    "collect_company_profile": true,
+    "collect_company_posts": true,
+    "max_company_posts": 7
+  },
+  "enrichment": {
+    "company_website_first": true,
+    "use_company_profile_fallback": true,
+    "use_deepseek": true,
+    "auto_enrich": true
+  },
+  "automation": {
+    "auto_export": true,
+    "schedule": "disabled"
+  }
+}

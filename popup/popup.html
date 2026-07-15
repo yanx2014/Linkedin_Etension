@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Prospect Tool</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header>
+    <h1>Prospect Tool</h1>
+  </header>
+
+  <section class="status" aria-label="Status">
+    <div class="status-row"><span>Backend</span><span id="status-backend" class="pill pill-unknown">checking…</span></div>
+    <div class="status-row"><span>DeepSeek</span><span id="status-deepseek" class="pill pill-unknown">—</span></div>
+    <div class="status-row"><span>Current page</span><span id="status-page" class="pill pill-unknown">—</span></div>
+    <div class="status-row"><span>Active job</span><span id="status-job" class="pill pill-unknown">none</span></div>
+  </section>
+
+  <section class="actions">
+    <button id="btn-workspace" class="primary">Open workspace</button>
+    <button id="btn-import">Import file…</button>
+    <button id="btn-run-last">Run last criteria on this page</button>
+    <input id="file-input" type="file" accept=".csv,.json,.txt" hidden>
+  </section>
+
+  <p id="message" class="message" role="status"></p>
+
+  <footer>
+    <small>Not affiliated with LinkedIn, Waalaxy, or Lemlist. Operates on visible pages only.</small>
+  </footer>
+
+  <script type="module" src="popup.js"></script>
+</body>
+</html>
