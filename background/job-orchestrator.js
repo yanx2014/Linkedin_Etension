@@ -26,7 +26,10 @@ function emitProgress(job) {
 function summarize(job) {
   return {
     id: job.id, state: job.state, source_type: job.source_type,
-    counts: job.counts || {}, blocked: job.blocked || null
+    counts: job.counts || {}, blocked: job.blocked || null,
+    // Included so the live "collected / target" counter renders even if the run
+    // view falls back to this payload instead of a fresh JOB_STATUS fetch.
+    max_profiles: job.max_profiles || 0, urls_only: !!job.urls_only
   };
 }
 

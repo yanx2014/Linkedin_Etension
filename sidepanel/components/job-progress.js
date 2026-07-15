@@ -11,12 +11,23 @@ export function renderJobProgress(root, api, job) {
   const discovered = counts.discovered ?? (accepted + rejected);
   const blockedNote = job.blocked ? `<p class="error">Blocked at ${escapeHtml(job.blocked.phase || 'checkpoint')} — sign in / complete verification in the tab, then retry. The tool does not bypass this.</p>` : '';
 
+  // Live "collected / target" counter climbing toward Y (max_profiles). For
+  // URL-only jobs the climbing number is the count of unique URLs discovered.
+  const target = Number(job.max_profiles) || 0;
+  const collectedLabel = job.urls_only ? 'URLs collected' : 'Discovered';
+  const pct = target ? Math.min(100, Math.round((discovered / target) * 100)) : 0;
+  const progressBlock = target
+    ? `<div class="row"><span>${collectedLabel}</span><span><strong>${discovered}</strong> / ${target}</span></div>
+       <div class="progress-bar" role="progressbar" aria-valuenow="${discovered}" aria-valuemin="0" aria-valuemax="${target}"><span style="width:${pct}%"></span></div>`
+    : `<div class="row"><span>${collectedLabel}</span><span>${discovered}</span></div>`;
+
   root.innerHTML = `
     <div class="card">
       <div class="row"><strong>Job ${escapeHtml(String(job.id).slice(0, 8))}</strong><span class="pill ${stateClass(job.state)}">${escapeHtml(job.state)}</span></div>
-      <div class="row"><span>Discovered</span><span>${discovered}</span></div>
-      <div class="row"><span>Accepted</span><span>${accepted}</span></div>
-      <div class="row"><span>Rejected</span><span>${rejected}</span></div>
+      ${progressBlock}
+      ${job.urls_only ? '' : `<div class="row"><span>Accepted</span><span>${accepted}</span></div>
+      <div class="row"><span>Rejected</span><span>${rejected}</span></div>`}
+      ${job.urls_only ? `<div class="row"><span>Unique URLs (exported)</span><span>${accepted}</span></div>` : ''}
       ${job.error ? `<p class="error">${escapeHtml(job.error)}</p>` : ''}
       ${blockedNote}
       <div class="btn-row">
