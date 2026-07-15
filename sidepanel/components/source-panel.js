@@ -13,6 +13,18 @@ export function renderSourcePanel(root, api) {
 
     <h3>Import from current page</h3>
     <p class="muted" id="page-hint">Open a supported LinkedIn page, then start an import.</p>
+
+    <label for="collection-mode">Collection mode</label>
+    <select id="collection-mode">
+      <option value="current_page_only" selected>Current page only (recommended)</option>
+      <option value="background_search_pages">Background search pages (opt-in)</option>
+    </select>
+    <p class="muted" id="mode-hint">Reads only the result cards rendered in the tab you are viewing. No extra tabs are opened and the page is never navigated.</p>
+    <label id="profile-visit-row" class="row hidden">
+      <span>Visit each profile page for full details</span>
+      <input id="profile-visit" type="checkbox">
+    </label>
+
     <button id="btn-start-page" class="primary" disabled>Start import from page</button>
 
     <h3>Import a file</h3>
@@ -25,6 +37,22 @@ export function renderSourcePanel(root, api) {
   `;
 
   refreshStatus();
+
+  // Collection-mode disclosure: reveal the profile-visit option only for the
+  // opt-in background mode, and explain what each mode actually does.
+  const modeSel = root.querySelector('#collection-mode');
+  const modeHint = root.querySelector('#mode-hint');
+  const profileVisitRow = root.querySelector('#profile-visit-row');
+  modeSel.addEventListener('change', () => {
+    if (modeSel.value === 'background_search_pages') {
+      modeHint.textContent = 'Opens one background tab and navigates search-result pages only (never the current tab). LinkedIn may treat automated page navigation as a Terms violation — use with care.';
+      profileVisitRow.classList.remove('hidden');
+    } else {
+      modeHint.textContent = 'Reads only the result cards rendered in the tab you are viewing. No extra tabs are opened and the page is never navigated.';
+      profileVisitRow.classList.add('hidden');
+      root.querySelector('#profile-visit').checked = false;
+    }
+  });
 
   async function refreshStatus() {
     try {
@@ -62,9 +90,22 @@ export function renderSourcePanel(root, api) {
   root.querySelector('#btn-start-page').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     try {
+      // Capture the active tab so current_page_only mode can collect from the
+      // page the user is looking at (no worker tab, no navigation).
+      const [active] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const mode = modeSel.value;
+      const criteria = {
+        ...(api.state.criteria || {}),
+        collection: {
+          ...((api.state.criteria || {}).collection || {}),
+          mode,
+          profile_visit: mode === 'background_search_pages' && root.querySelector('#profile-visit').checked
+        }
+      };
       const res = await api.rpc(api.MessageTypes.IMPORT_START, {
         source_type: btn.dataset.sourceType, source_url: btn.dataset.sourceUrl,
-        criteria: api.state.criteria || {}
+        active_tab_id: active?.id ?? null,
+        criteria
       });
       api.setMessage(`Import job ${res.job_id.slice(0, 8)} started.`);
       api.switchView('run');

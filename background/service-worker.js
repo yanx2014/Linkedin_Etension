@@ -20,7 +20,7 @@ import { saveSource, allSources, deleteSource, getSource } from '../storage/sour
 import { syncAlarms, sourceIdFromAlarm } from './alarm-manager.js';
 import { clearAll } from '../storage/database.js';
 import { recordDeletion } from '../storage/audit-repository.js';
-import { health, deleteAllData } from './backend-client.js';
+import { health, authCheck, deleteAllData } from './backend-client.js';
 
 // Open side panel on toolbar click.
 chrome.runtime.onInstalled.addListener(() => {
@@ -60,6 +60,9 @@ registerAll({
     const job = await createJob({
       source_type: payload.source_type || 'standard_search',
       source_url: payload.source_url || null,
+      // Tab the user is looking at — used by current_page_only collection mode
+      // to read rendered cards without opening a worker tab or navigating.
+      active_tab_id: payload.active_tab_id ?? null,
       criteria: normalized,
       max_profiles: normalized.max_profiles,
       destination_list_id: payload.destination_list_id || null,
@@ -124,6 +127,23 @@ registerAll({
     const out = { backend: false, deepseek: false };
     try { const h = await health(); out.backend = true; out.deepseek = !!h.deepseek_configured; out.search = !!h.search_configured; }
     catch { out.backend = false; }
+    return out;
+  },
+
+  // Detailed diagnostic: backend reachable / token valid / DeepSeek / Brave.
+  [MessageTypes.AUTH_CHECK]: async () => {
+    const out = { backend: false, token_required: false, token_valid: false, deepseek: false, search: false, error: null };
+    try {
+      const r = await authCheck();
+      out.backend = !!r.backend;
+      out.token_required = !!r.token_required;
+      out.token_valid = !!r.token_valid;
+      out.deepseek = !!r.deepseek_configured;
+      out.search = !!r.search_configured;
+    } catch (err) {
+      out.backend = false;
+      out.error = err.message;
+    }
     return out;
   },
 

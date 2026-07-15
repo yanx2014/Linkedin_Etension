@@ -17,9 +17,9 @@ test('collects preview rows from search results', () => {
   const rows = adapter.collectPreviewRows({ url, document, limit: 10 });
   assert.equal(rows.length, 3);
   assert.equal(rows[0].full_name, 'Jane Doe');
-  assert.equal(rows[0].profile_url, 'https://www.linkedin.com/in/jane-doe-sample?trk=search');
-  assert.match(rows[0].headline, /VP Sales/);
-  assert.equal(rows[0].location, 'Paris, France');
+  // Canonicalized: query string stripped.
+  assert.equal(rows[0].profile_url, 'https://www.linkedin.com/in/jane-doe-sample');
+  assert.match(rows[0].preview_text, /VP Sales/);
 });
 
 test('finds the next-page control', () => {

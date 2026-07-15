@@ -74,6 +74,38 @@ test('deepseek failure falls back to deterministic avatar and completes as parti
   assert.match(res.exports['profiles_selected.csv'], /Jane Doe/);
 });
 
+test('current_page_only: enrich from search-card evidence (no profile visit) still scores role/company and guarantees collected_at', async () => {
+  // Preview-only record — the shape produced by current_page_only discovery.
+  const preview = {
+    source_record_id: 'jane-preview',
+    source_type: 'standard_search',
+    full_name: 'Jane Doe',
+    headline: 'VP Sales at Acme Analytics',
+    company: 'Acme Analytics',
+    location: 'Paris, France',
+    profile_url: 'https://www.linkedin.com/in/jane-doe',
+    preview_text: 'Jane Doe · VP Sales at Acme Analytics · Paris'
+  };
+  const res = await runImportPipeline({
+    records: [preview],
+    criteria,
+    nowMs: NOW,
+    job: { id: 'job-current-page' },
+    // No profile navigation: collectedProfile is just the preview.
+    enrichProfile: async () => ({ collectedProfile: preview, companyEvidence })
+  });
+  assert.equal(res.accepted.length, 1);
+  const csv = res.exports['profiles_selected.csv'];
+  assert.match(csv, /Acme Analytics/); // company carried through from the card
+  // collected_at is guaranteed (falls back to the pipeline collection time).
+  const acceptedAudit = res.audit.find((a) => a.decision === 'accepted');
+  assert.ok(acceptedAudit.collected_at, 'audit collected_at set');
+  const enriched = res.enriched[0];
+  assert.ok(enriched.collected_at && enriched.collected_at.length > 0, 'csv collected_at set');
+  // Core-profile completeness (name+role/headline+company+location+url) scores high.
+  assert.ok(enriched.score >= 60, `expected score >= 60, got ${enriched.score}`);
+});
+
 test('person and company posts are capped at seven in evidence', async () => {
   const manyPosts = Array.from({ length: 10 }, (_, i) => ({ id: `p${i}`, text: `Post number ${i} about sales pipeline`, created_at: `2025-1${i % 2}-01T00:00:00Z` }));
   const profile = { ...janeProfile, posts: manyPosts };

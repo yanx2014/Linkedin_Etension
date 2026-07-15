@@ -17,6 +17,16 @@ const DEFAULT_CRITERIA = Object.freeze({
   max_profiles: 500,
   allowed_profile_hosts: ['linkedin.com', 'www.linkedin.com'],
   collection: {
+    // How result pages are collected:
+    //  'current_page_only'      — active tab only; no chrome.tabs.create, no
+    //                             navigation; process only rendered cards (DEFAULT).
+    //  'background_search_pages'— one inactive worker tab, navigates search-result
+    //                             pages only (opt-in, disclosed in the UI).
+    mode: 'current_page_only',
+    // Visit each person's /in/ profile page to collect full details. Only
+    // honoured in 'background_search_pages' mode; default off so a background
+    // run never opens profile pages unless the user explicitly enables it.
+    profile_visit: false,
     collect_profile_details: true,
     collect_person_posts: true,
     max_person_posts: 7,
@@ -107,10 +117,24 @@ export function validateCriteria(input) {
     if (typeof input.collection !== 'object') errors.push('collection must be an object');
     else {
       Object.assign(normalized.collection, pickBooleans(input.collection, [
-        'collect_profile_details', 'collect_person_posts', 'collect_company_profile', 'collect_company_posts'
+        'collect_profile_details', 'collect_person_posts', 'collect_company_profile', 'collect_company_posts', 'profile_visit'
       ]));
       normalized.collection.max_person_posts = validatePostLimit(input.collection.max_person_posts, 'max_person_posts', errors, 7);
       normalized.collection.max_company_posts = validatePostLimit(input.collection.max_company_posts, 'max_company_posts', errors, 7);
+      if (input.collection.mode != null) {
+        const mode = String(input.collection.mode);
+        if (!['current_page_only', 'background_search_pages'].includes(mode)) {
+          errors.push('collection.mode must be one of current_page_only, background_search_pages');
+        } else {
+          normalized.collection.mode = mode;
+        }
+      }
+      // profile_visit is only meaningful in background_search_pages mode; in
+      // current_page_only it is forced off (no navigation ever happens).
+      if (normalized.collection.mode === 'current_page_only' && normalized.collection.profile_visit) {
+        normalized.collection.profile_visit = false;
+        warnings.push('collection.profile_visit ignored in current_page_only mode (no navigation)');
+      }
     }
   }
 

@@ -13,7 +13,9 @@ export function buildJobSummary({
   auditEntries,
   exportHashes = {},
   schemaVersions = {},
-  model = { model: 'deepseek-v4-pro', reasoning_effort: 'max' }
+  // Not hardcoded — supplied by the caller from the model the backend actually
+  // used (null when no LLM enrichment ran, e.g. import-only jobs).
+  model = { model: null, reasoning_effort: 'max' }
 }) {
   const byDecision = tally(auditEntries, (e) => e.decision);
   const bySource = tally(auditEntries, (e) => e.source_type || 'unknown');

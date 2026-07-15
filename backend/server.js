@@ -10,6 +10,7 @@ import { applyCors, isOriginAllowed } from './security/cors.js';
 import { isAuthorized } from './security/request-auth.js';
 import { createRateLimiter } from './security/rate-limit.js';
 import { healthRoute } from './routes/health.js';
+import { authCheckRoute } from './routes/auth-check.js';
 import { enrichProfileRoute } from './routes/enrich-profile.js';
 import { enrichBatchRoute } from './routes/enrich-batch.js';
 import { jobStatusRoute } from './routes/job-status.js';
@@ -61,8 +62,10 @@ export async function handleRequest(req, res, deps = {}) {
   const url = new URL(req.url, `http://${config.host}:${config.port}`);
   const path = url.pathname;
 
-  // Health is unauthenticated.
+  // Health + auth-check are unauthenticated (auth-check inspects the token but
+  // always answers 200 so the UI can tell "token wrong" from "backend down").
   if (req.method === 'GET' && path === '/v1/health') { send(res, 200, healthRoute()); return; }
+  if (req.method === 'GET' && path === '/v1/auth/check') { send(res, 200, authCheckRoute(req)); return; }
 
   // Everything else requires the install token (when configured).
   if (!isAuthorized(req)) { send(res, 401, { error: 'unauthorized' }); return; }

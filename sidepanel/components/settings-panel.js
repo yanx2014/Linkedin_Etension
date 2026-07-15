@@ -8,10 +8,19 @@ export function renderSettingsPanel(root, api) {
       <label for="backend-url">Backend URL</label>
       <input id="backend-url" type="url" placeholder="http://127.0.0.1:8787">
       <label for="backend-token">Backend installation token</label>
-      <input id="backend-token" type="text" placeholder="local shared secret">
+      <input id="backend-token" type="password" placeholder="local shared secret" autocomplete="off">
       <label><input id="use-deepseek" type="checkbox"> Use DeepSeek enrichment</label>
       <label><input id="consent" type="checkbox"> I consent to data collection from visible pages and DeepSeek processing</label>
-      <div class="btn-row"><button id="btn-save-settings" class="primary">Save settings</button></div>
+      <div class="btn-row">
+        <button id="btn-save-settings" class="primary">Save settings</button>
+        <button id="btn-test-backend">Test backend connection</button>
+      </div>
+      <div id="conn-status" class="card" style="margin-top:8px">
+        <div class="row"><span>Backend reachable</span><span id="st-backend" class="pill">—</span></div>
+        <div class="row"><span>Token valid</span><span id="st-token" class="pill">—</span></div>
+        <div class="row"><span>DeepSeek configured</span><span id="st-deepseek" class="pill">—</span></div>
+        <div class="row"><span>Brave search configured</span><span id="st-search" class="pill">—</span></div>
+      </div>
     </div>
 
     <h3>Saved auto-import sources</h3>
@@ -50,6 +59,34 @@ export function renderSettingsPanel(root, api) {
       api.setMessage('Settings saved.');
     } catch (e) { api.setMessage(e.message, true); }
   });
+
+  // Test-connection: save first (so the current URL/token are used), then run
+  // the diagnostic and show four independent statuses.
+  root.querySelector('#btn-test-backend').addEventListener('click', async () => {
+    setStatus('st-backend', 'checking…', 'pill');
+    setStatus('st-token', '—', 'pill'); setStatus('st-deepseek', '—', 'pill'); setStatus('st-search', '—', 'pill');
+    try {
+      await api.rpc(api.MessageTypes.SETTINGS_SET, {
+        backend_url: root.querySelector('#backend-url').value.trim(),
+        backend_token: root.querySelector('#backend-token').value.trim()
+      });
+      const r = await api.rpc(api.MessageTypes.AUTH_CHECK);
+      setStatus('st-backend', r.backend ? 'reachable' : 'unreachable', r.backend ? 'pill-ok' : 'pill-err');
+      if (!r.backend) {
+        api.setMessage(`Backend unreachable: ${r.error || 'no response'}`, true);
+        return;
+      }
+      setStatus('st-token', r.token_required ? (r.token_valid ? 'valid' : 'invalid') : 'not required', r.token_valid ? 'pill-ok' : 'pill-err');
+      setStatus('st-deepseek', r.deepseek ? 'configured' : 'not configured', r.deepseek ? 'pill-available' : 'pill-restricted');
+      setStatus('st-search', r.search ? 'configured' : 'not configured', r.search ? 'pill-available' : 'pill-restricted');
+      api.setMessage(r.token_required && !r.token_valid ? 'Backend reachable but token is invalid.' : 'Backend connection OK.');
+    } catch (e) { setStatus('st-backend', 'error', 'pill-err'); api.setMessage(e.message, true); }
+  });
+
+  function setStatus(id, text, cls) {
+    const el = root.querySelector(`#${id}`);
+    if (el) { el.textContent = text; el.className = `pill ${cls}`; }
+  }
 
   async function loadSources() {
     try {

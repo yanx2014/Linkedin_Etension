@@ -81,7 +81,7 @@ document.getElementById('btn-run-last').addEventListener('click', async () => {
     const detect = await rpc(MessageTypes.DETECT_SOURCE, { url: tab?.url || '' });
     if (!detect.supported) { msg('This page is not a supported source.'); return; }
     const res = await rpc(MessageTypes.IMPORT_START, {
-      source_type: detect.source_type, source_url: tab.url, criteria: await lastCriteria()
+      source_type: detect.source_type, source_url: tab.url, active_tab_id: tab?.id ?? null, criteria: await lastCriteria()
     });
     msg(`Import job ${res.job_id.slice(0, 8)} started.`);
     refresh();

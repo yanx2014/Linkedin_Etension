@@ -66,6 +66,23 @@ const BLOCKED_TEXT = [
   'unusual activity'
 ];
 
+// A control is usable as "Next" only when present, not disabled, not
+// aria-disabled, and not hidden. Works with a real element or a stub exposing
+// getAttribute/hasAttribute.
+export function isUsableNextControl(control) {
+  if (!control) return false;
+  const getAttr = (n) => (typeof control.getAttribute === 'function' ? control.getAttribute(n) : null);
+  const hasAttr = (n) => (typeof control.hasAttribute === 'function' ? control.hasAttribute(n) : getAttr(n) != null);
+  if (hasAttr('disabled')) return false;
+  if (String(getAttr('aria-disabled')).toLowerCase() === 'true') return false;
+  if (hasAttr('hidden')) return false;
+  const cls = String(getAttr('class') || '');
+  if (/\b(disabled|is-disabled)\b/.test(cls)) return false;
+  const style = String(getAttr('style') || '');
+  if (/display\s*:\s*none|visibility\s*:\s*hidden/.test(style)) return false;
+  return true;
+}
+
 export function detectBlocked({ url, document } = {}) {
   const u = url || '';
   for (const re of BLOCKED_URL_PATTERNS) {

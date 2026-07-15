@@ -28,6 +28,7 @@ export async function enrichProfileRoute(payload, deps = {}) {
   // 2. DeepSeek structuring (optional).
   let avatar = null;
   let status = 'complete';
+  let enrichmentError = null;
   const warnings = [];
 
   if (useDeepseek && (deps.deepseek || isDeepseekConfigured())) {
@@ -47,10 +48,14 @@ export async function enrichProfileRoute(payload, deps = {}) {
         } else {
           status = 'llm_invalid_json';
           warnings.push(...validation.errors.map((e) => ({ reason: e })));
+          enrichmentError = { phase: 'deepseek', code: 'LLM_SCHEMA_INVALID', status: null, message: validation.errors[0] || 'schema validation failed' };
         }
       } catch (err) {
         status = err.code === 'LLM_INVALID_JSON' ? 'llm_invalid_json' : 'llm_unavailable';
-        warnings.push({ reason: err.message });
+        // Structured error so the extension can surface a precise reason
+        // (401 bad key, 402 balance, 429 rate limit, timeout, content filter…).
+        enrichmentError = { phase: 'deepseek', code: err.code || 'LLM_ERROR', status: err.status || null, message: err.message };
+        warnings.push({ reason: err.message, code: err.code || 'LLM_ERROR' });
       }
     }
   } else {
@@ -61,6 +66,7 @@ export async function enrichProfileRoute(payload, deps = {}) {
     companyEvidence,
     avatar,
     status,
+    enrichmentError,
     warnings,
     prompt_version: PROMPT_VERSION,
     model: config.deepseekModel

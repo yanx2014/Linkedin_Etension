@@ -50,3 +50,27 @@ test('defaultCriteria returns a fresh clone', () => {
   a.max_profiles = 1;
   assert.equal(defaultCriteria().max_profiles, 500);
 });
+
+test('collection.mode defaults to current_page_only and profile_visit off', () => {
+  const res = validateCriteria({});
+  assert.equal(res.normalized.collection.mode, 'current_page_only');
+  assert.equal(res.normalized.collection.profile_visit, false);
+});
+
+test('unknown collection.mode is an error', () => {
+  assert.equal(validateCriteria({ collection: { mode: 'turbo' } }).valid, false);
+});
+
+test('background_search_pages mode accepts profile_visit', () => {
+  const res = validateCriteria({ collection: { mode: 'background_search_pages', profile_visit: true } });
+  assert.equal(res.valid, true);
+  assert.equal(res.normalized.collection.mode, 'background_search_pages');
+  assert.equal(res.normalized.collection.profile_visit, true);
+});
+
+test('profile_visit is forced off in current_page_only mode with a warning', () => {
+  const res = validateCriteria({ collection: { mode: 'current_page_only', profile_visit: true } });
+  assert.equal(res.valid, true);
+  assert.equal(res.normalized.collection.profile_visit, false);
+  assert.ok(res.warnings.some((w) => w.includes('profile_visit')));
+});

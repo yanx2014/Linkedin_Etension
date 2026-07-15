@@ -19,6 +19,10 @@ export async function runImportPipeline({ records, criteria, seenKeys = [], enri
 
   const enriched = [];
   const evidenceExport = [];
+  // The model identifier is not hardcoded in metadata — it is whatever the
+  // backend reports it actually used (config.deepseekModel). Stays null until an
+  // enrichment response supplies it (e.g. import-only jobs never call DeepSeek).
+  let usedModel = null;
 
   for (const accepted of selection.accepted) {
     let collectedProfile = accepted;
@@ -36,6 +40,7 @@ export async function runImportPipeline({ records, criteria, seenKeys = [], enri
           llmOutput = res.llmOutput || null;
           enrichmentStatus = res.status || 'complete';
           enrichmentError = res.enrichmentError || null;
+          if (res.model) usedModel = res.model;
         }
       } catch (err) {
         enrichmentStatus = 'failed';
@@ -53,16 +58,27 @@ export async function runImportPipeline({ records, criteria, seenKeys = [], enri
       avatar.warnings = [...(avatar.warnings || []), { field: 'enrichment', reason: enrichmentError }];
     }
 
-    // Recompute score now that enrichment evidence is known.
+    // Recompute score now that enrichment evidence is known. Match details
+    // (required groups/terms + keyword corpus) stay preview-based, but
+    // core-profile completeness scores the MERGED enriched record so grounded
+    // role/company/location filled during enrichment count toward the score.
     const md = evaluateMatch(accepted, criteria);
+    const mergedForScore = {
+      ...accepted,
+      ...collectedProfile,
+      role: avatar.model.current_role || collectedProfile.role || accepted.role || '',
+      company: avatar.model.current_company || collectedProfile.company || accepted.company || '',
+      location: collectedProfile.location || accepted.location || '',
+      canonical_url: accepted.canonical_url
+    };
     const evidence = {
       hasPersonPosts: Array.isArray(collectedProfile.posts) && collectedProfile.posts.length > 0,
       hasConfirmedWebsite: !!avatar.model.company_website,
       hasCompanyProfile: Array.isArray(companyEvidence.profile_fields) && companyEvidence.profile_fields.length > 0
     };
-    const scored = computeScore(accepted, criteria, md, evidence);
+    const scored = computeScore(mergedForScore, criteria, md, evidence);
 
-    const csvRecord = buildCsvRecord(accepted, collectedProfile, avatar, scored.score);
+    const csvRecord = buildCsvRecord(accepted, collectedProfile, avatar, scored.score, collectedAt);
     enriched.push(csvRecord);
 
     // Update audit entry.
@@ -73,6 +89,7 @@ export async function runImportPipeline({ records, criteria, seenKeys = [], enri
       auditEntry.score = scored.score;
       auditEntry.score_breakdown = scored.breakdown;
       auditEntry.confidence = avatar.confidence;
+      if (usedModel) auditEntry.model = usedModel;
       if (avatar.warnings.length) {
         auditEntry.warnings = [...(auditEntry.warnings || []), ...avatar.warnings.map((w) => w.reason || w.field || 'warning')];
       }
@@ -82,7 +99,7 @@ export async function runImportPipeline({ records, criteria, seenKeys = [], enri
       profile_url: accepted.canonical_url,
       confidence: avatar.confidence,
       coverage: avatar.coverage,
-      model: { model: 'deepseek-v4-pro', reasoning_effort: 'max' },
+      model: { model: usedModel, reasoning_effort: 'max' },
       evidence_map: avatar.evidence_map,
       warnings: avatar.warnings,
       avatar_model: avatar.model
@@ -104,7 +121,8 @@ export async function runImportPipeline({ records, criteria, seenKeys = [], enri
     job: { ...job, completed_at: collectedAt, started_at: job.started_at || collectedAt },
     auditEntries: selection.audit,
     exportHashes,
-    schemaVersions: { criteria: '1', collected_profile: '1', llm_avatar: '1', audit: '1' }
+    schemaVersions: { criteria: '1', collected_profile: '1', llm_avatar: '1', audit: '1' },
+    model: { model: usedModel, reasoning_effort: 'max' }
   });
 
   return {
@@ -123,16 +141,20 @@ export async function runImportPipeline({ records, criteria, seenKeys = [], enri
   };
 }
 
-function buildCsvRecord(accepted, collectedProfile, avatar, score) {
+function buildCsvRecord(accepted, collectedProfile, avatar, score, collectedAtFallback = '') {
   const m = avatar.model;
   const record = {
-    full_name: collectedProfile.full_name || accepted.full_name || '',
+    // Names: prefer the grounded avatar name, then collected, then preview.
+    full_name: m.real_professional_name || collectedProfile.full_name || accepted.full_name || '',
     headline: collectedProfile.headline || accepted.headline || '',
+    // Role/company: grounded avatar model first (llmScalar is grounding-validated),
+    // then collected profile, then preview evidence.
     company: m.current_company || collectedProfile.company || accepted.company || '',
     location: collectedProfile.location || accepted.location || '',
     profile_url: accepted.canonical_url || '',
     source_search: accepted.source_search || accepted.source_url || '',
-    collected_at: collectedProfile.collected_at || accepted.collected_at || '',
+    // collected_at is guaranteed: fall back to the pipeline's collection time.
+    collected_at: collectedProfile.collected_at || accepted.collected_at || collectedAtFallback || '',
     last_name: collectedProfile.last_name || accepted.last_name || '',
     first_name: collectedProfile.first_name || accepted.first_name || '',
     role: m.current_role || collectedProfile.role || accepted.role || '',

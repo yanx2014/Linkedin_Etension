@@ -163,6 +163,24 @@ restarts. Pause, resume, cancel, and retry are available.
 
 ---
 
+## Collection modes
+
+`collection.mode` controls how result pages are read:
+
+- **`current_page_only`** (default, recommended). Reads only the result cards
+  currently rendered in the **active tab you are viewing**. It never opens a
+  worker tab (`chrome.tabs.create`), never navigates, and never visits profile
+  pages. It can scroll within the page while the URL is unchanged, and enriches
+  from the search‑card evidence plus confirmed public company websites. This is
+  the least intrusive mode and the safest with respect to LinkedIn's Terms.
+- **`background_search_pages`** (opt‑in, disclosed in the UI). Opens **one
+  inactive worker tab** and navigates search‑result pages only. Profile pages
+  (`/in/…`) are visited **only** when `collection.profile_visit` is `true`.
+  Automated navigation carries more platform‑contract risk — use with care.
+
+`profile_visit` is forced off in `current_page_only` mode (there is no
+navigation to visit a profile).
+
 ## Criteria schema
 
 See `data/criteria.example.json` and `schemas/criteria.schema.json`.
@@ -170,6 +188,8 @@ See `data/criteria.example.json` and `schemas/criteria.schema.json`.
 - `preview_required_groups`: **AND across groups, OR within a group**.
 - `preview_required_terms`: **AND**. `preview_excluded_terms`: **NOT**.
 - `max_profiles`: 1–999 (default 500). Post limits: 0–7.
+- `collection.mode`: `current_page_only` (default) or `background_search_pages`.
+- `collection.profile_visit`: visit `/in/` pages (background mode only).
 - Matching is phrase/token‑aware and Unicode‑normalized (`ceo` ≠ `ocean`,
   `sales` ≠ `wholesales`, `c++` matches `C++ Engineer`).
 
@@ -255,6 +275,12 @@ Saved sources support scheduled auto‑imports (daily/weekly/monthly via
   redacts names/posts/emails/URLs from normal logs.
 - No remotely hosted extension code (MV3 requirement); strict CSP.
 - SSRF protections on all website fetching.
+- The token field in **Settings** is a password input. **Settings → Test backend
+  connection** calls `GET /v1/auth/check` and shows four independent statuses:
+  backend reachable, token valid, DeepSeek configured, Brave configured — so a
+  setup problem is diagnosable without reading logs.
+- API keys live only in `backend/.env` (git‑ignored). See **[SECURITY.md](SECURITY.md)**
+  for credential rotation and git‑history‑scrubbing steps if a key ever leaks.
 
 ---
 
@@ -285,6 +311,7 @@ npm run package
 | Import stops as **BLOCKED** | LinkedIn checkpoint/verification — complete it in the tab, then retry. The tool does not bypass it. |
 | `426`/version errors (LinkedIn API) | N/A — this tool uses no LinkedIn API |
 | DeepSeek `429` | Rate limited; the client backs off and retries transient errors up to twice |
+| Enrichment fails on every profile | Check the `profile_note` column — it now carries a classified reason, e.g. `deepseek/LLM_UNAUTHORIZED http 401` (revoked key), `LLM_PAYMENT_REQUIRED http 402` (no balance), `LLM_RATE_LIMITED http 429`, or `LLM_TIMEOUT`. Fix the key/balance in `backend/.env` and use **Test backend connection**. |
 | "unsupported layout" on a page | The page's structure changed; see the selector‑maintenance guide below |
 
 ---

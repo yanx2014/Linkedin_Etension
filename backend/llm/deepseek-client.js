@@ -57,19 +57,37 @@ export class DeepseekClient {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${this.apiKey}` },
         body: JSON.stringify(body)
       });
+    } catch (err) {
+      // AbortError => our timeout fired. Mark it transient so structure() retries.
+      if (err && (err.name === 'AbortError' || controller.signal.aborted)) {
+        const e = new Error(`deepseek request timed out after ${Math.round(RetryConfig.timeoutMs / 1000)}s`);
+        e.code = 'LLM_TIMEOUT';
+        e.transient = true;
+        throw e;
+      }
+      throw err;
     } finally {
       clearTimeout(timer);
     }
     if (!res.ok) {
-      const err = new Error(`deepseek ${res.status}`);
-      err.status = res.status;
+      // Read the upstream body for a human-readable reason (no secrets here).
+      let detail = '';
+      try { detail = (await res.text()).slice(0, 200); } catch { /* ignore */ }
+      throw classifyUpstream(res.status, detail);
+    }
+    let data;
+    try {
+      data = await res.json();
+    } catch {
+      const err = new Error('deepseek returned a non-JSON response body');
+      err.code = 'LLM_INVALID_JSON';
       throw err;
     }
-    const data = await res.json();
     const choice = data.choices && data.choices[0];
     if (choice && choice.finish_reason === 'content_filter') {
-      const err = new Error('content filtered');
+      const err = new Error('deepseek response was content-filtered');
       err.contentFilter = true;
+      err.code = 'LLM_CONTENT_FILTER';
       throw err;
     }
     return choice && choice.message ? choice.message.content : '';
@@ -98,3 +116,29 @@ export class DeepseekClient {
 }
 
 function sleep(ms) { return new Promise((r) => setTimeout(r, ms)); }
+
+// Map a DeepSeek HTTP status to a descriptive, classified error. Codes let the
+// caller distinguish a bad key (permanent) from rate-limiting/server errors
+// (transient, retried by structure() via isTransient).
+export function classifyUpstream(status, detail = '') {
+  const suffix = detail ? ` — ${detail}` : '';
+  let code;
+  let message;
+  switch (status) {
+    case 400: code = 'LLM_BAD_REQUEST'; message = 'deepseek rejected the request (400 invalid parameters)'; break;
+    case 401: code = 'LLM_UNAUTHORIZED'; message = 'deepseek API key is invalid or revoked (401)'; break;
+    case 402: code = 'LLM_PAYMENT_REQUIRED'; message = 'deepseek account has insufficient balance (402)'; break;
+    case 403: code = 'LLM_FORBIDDEN'; message = 'deepseek denied access (403)'; break;
+    case 422: code = 'LLM_UNPROCESSABLE'; message = 'deepseek could not process the request (422)'; break;
+    case 429: code = 'LLM_RATE_LIMITED'; message = 'deepseek rate limit reached (429)'; break;
+    default:
+      if (status >= 500) { code = 'LLM_SERVER_ERROR'; message = `deepseek server error (${status})`; }
+      else { code = 'LLM_HTTP_ERROR'; message = `deepseek request failed (${status})`; }
+  }
+  const err = new Error(message + suffix);
+  err.status = status;
+  err.code = code;
+  // 429 and 5xx are worth retrying; 4xx client errors are not.
+  err.transient = status === 429 || status >= 500;
+  return err;
+}

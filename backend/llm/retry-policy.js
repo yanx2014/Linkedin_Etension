@@ -11,6 +11,7 @@ export const RetryConfig = {
 export function isTransient(err) {
   if (!err) return false;
   if (err.name === 'AbortError') return true;
+  if (err.transient === true) return true; // classified timeouts / 429 / 5xx
   const status = err.status || 0;
   return status === 429 || (status >= 500 && status <= 599);
 }

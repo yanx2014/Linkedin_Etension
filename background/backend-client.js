@@ -26,6 +26,13 @@ export async function health() {
   return backend('/v1/health', { method: 'GET' });
 }
 
+// Diagnostic auth/config check: reports backend reachability, whether the
+// configured install token is accepted, and which providers are configured.
+// Never throws on a 401 — the endpoint always answers 200.
+export async function authCheck() {
+  return backend('/v1/auth/check', { method: 'GET' });
+}
+
 // Enrich one collected profile: returns { companyEvidence, llmOutput, ... }.
 export async function enrichProfile(collectedProfile, options = {}) {
   return backend('/v1/enrich/profile', {

@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html>
+<head><title>Recherche | LinkedIn</title></head>
+<body>
+<main class="scaffold-finite-scroll">
+  <ul>
+    <!-- Card 1: mutual avatar BEFORE primary; primary avatar (image-only) +
+         name link with span; duplicate profile link; tracking params;
+         mutual-connections section with avatar links; French • 2e marker -->
+    <li>
+      <a href="/in/early-mutual-avatar/" class="_img"><img alt=""></a>
+      <div class="_lockup">
+        <a href="/in/frederic-allouch-177b961a/?miniProfileUrn=urn:li:x&amp;trk=a" class="_img"><img alt=""></a>
+        <a href="/in/frederic-allouch-177b961a/?trk=b" class="_name">
+          <span aria-hidden="true">Frédéric ALLOUCH</span>
+          <span class="_vh">Voir le profil de Frédéric ALLOUCH</span>
+        </a>
+        <span class="_deg">• 2e</span>
+        <div class="_sub">chef d'entreprise NERYTEC CONSULTING Cabinet de recrutement</div>
+        <div class="_loc">Paris et périphérie</div>
+      </div>
+      <div class="_mutual">
+        <a href="/in/philippedurante/" class="_img"><img alt=""></a>
+        <a href="/in/florence-l-8b65b2/" class="_img"><img alt=""></a>
+        <span>Philippe Duranté, Florence LAVAGNE et 60 autres relations en commun</span>
+      </div>
+    </li>
+
+    <!-- Card 2: primary is an image-only link but carries an aria-label name -->
+    <li>
+      <a href="/in/abdoulaye-yehiya-4a3909233/" aria-label="Voir le profil de Abdoulaye YEHIYA" class="_img"><img alt=""></a>
+      <div class="_sub">Consultant en recrutement chez Work&amp;You - Cabinet de Recrutement</div>
+      <div class="_loc">France</div>
+      <div class="_mutual">
+        <a href="/in/patricehlomenou/" class="_img"><img alt=""></a>
+        <span>Patrice Hlomenou et 1 autre relation en commun</span>
+      </div>
+    </li>
+
+    <!-- Card 3: whole card text inside the link (no name span); degree marker
+         lets the cleaner recover just the name -->
+    <li>
+      <a href="/in/jean-claude-estrampes/">Jean-Claude ESTRAMPES • 3e Dirigeant cabinet de recrutement et de conseil RH Paris, Île-de-France, France</a>
+    </li>
+  </ul>
+
+  <!-- Disabled Next control -->
+  <button aria-label="Suivant" aria-disabled="true" class="artdeco-pagination__button--next">Suivant</button>
+</main>
+</body>
+</html>
