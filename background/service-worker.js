@@ -55,15 +55,16 @@ registerAll({
   },
 
   [MessageTypes.IMPORT_START]: async (payload) => {
-    // URL-only mode: collect just the profile URLs from the current LinkedIn
-    // page. Force current_page_only (active tab, no navigation), no DeepSeek,
-    // and no auto-export — the user downloads the CSV on demand.
+    // URL-only mode: collect just the profile URLs — no profile visits, no
+    // DeepSeek, no auto-export (the user downloads on demand). The collection
+    // mode chosen by the client is preserved: current_page_only reads the active
+    // page; background_search_pages walks pages 1..X to reach max_profiles.
     const urlsOnly = !!payload.urls_only;
     let inputCriteria = payload.criteria || {};
     if (urlsOnly) {
       inputCriteria = {
         ...inputCriteria,
-        collection: { ...(inputCriteria.collection || {}), mode: 'current_page_only', profile_visit: false },
+        collection: { ...(inputCriteria.collection || {}), profile_visit: false },
         enrichment: { ...(inputCriteria.enrichment || {}), use_deepseek: false, auto_enrich: false },
         automation: { ...(inputCriteria.automation || {}), auto_export: false }
       };

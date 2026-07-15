@@ -26,8 +26,11 @@ export function renderSourcePanel(root, api) {
     </label>
 
     <button id="btn-start-page" class="primary" disabled>Start import from page</button>
-    <button id="btn-urls-only" disabled>Get profile URLs (this page)</button>
-    <p class="muted">Collects only the profile URLs shown on the current LinkedIn page — no profile visits, no enrichment. Download the CSV when you want it.</p>
+
+    <label for="urls-target">Max profile URLs to collect (Y)</label>
+    <input id="urls-target" type="number" min="1" max="999" value="100">
+    <button id="btn-urls-only" disabled>Get profile URLs</button>
+    <p class="muted" id="urls-hint">Collects profile URLs only — no profile visits, no enrichment. In “Current page only” it reads the page you are on; in “Background search pages” it walks pages 1, 2, 3 … until it reaches Y unique URLs (already-seen URLs are skipped). Download the CSV when you want it.</p>
 
     <h3>Import a file</h3>
     <input id="file" type="file" accept=".csv,.json,.txt">
@@ -119,19 +122,32 @@ export function renderSourcePanel(root, api) {
     } catch (err) { api.setMessage(err.message, true); }
   });
 
-  // URL-only collection: profile URLs from the current page, no enrichment,
-  // no auto-download. The user exports the CSV from the job view when ready.
+  // URL-only collection: profile URLs only, no enrichment, no auto-download.
+  // Honors the collection mode — background mode walks pages 1..X until it
+  // reaches the target Y unique URLs. Deduped within the run and across runs.
   root.querySelector('#btn-urls-only').addEventListener('click', async (e) => {
     const btn = e.currentTarget;
     try {
       const [active] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const mode = modeSel.value;
+      const target = Math.max(1, Math.min(999, parseInt(root.querySelector('#urls-target').value, 10) || 100));
+      const criteria = {
+        ...(api.state.criteria || {}),
+        max_profiles: target,
+        collection: {
+          ...((api.state.criteria || {}).collection || {}),
+          mode,
+          profile_visit: false
+        }
+      };
       const res = await api.rpc(api.MessageTypes.IMPORT_START, {
         source_type: btn.dataset.sourceType, source_url: btn.dataset.sourceUrl,
         active_tab_id: active?.id ?? null,
         urls_only: true,
-        criteria: api.state.criteria || {}
+        criteria
       });
-      api.setMessage(`Collecting URLs (job ${res.job_id.slice(0, 8)}). Use “Export results” to download when ready.`);
+      const how = mode === 'background_search_pages' ? `up to ${target} across pages` : 'from this page';
+      api.setMessage(`Collecting URLs ${how} (job ${res.job_id.slice(0, 8)}). Use “Export results” to download when ready.`);
       api.switchView('run');
     } catch (err) { api.setMessage(err.message, true); }
   });

@@ -60,6 +60,29 @@ test('URL-only collection: no enricher → CSV has profile_url, no enrichment at
   assert.ok(res.audit.every((a) => a.enrichment_status === 'import_only' || a.decision === 'rejected'));
 });
 
+test('URL dedup: a URL already stored from a previous run is skipped', async () => {
+  const pageUrl = 'https://www.linkedin.com/search/results/people/?keywords=sales';
+  const previews = [
+    { source_record_id: 'jane', source_type: 'standard_search', full_name: 'Jane Doe',
+      headline: 'VP Sales', profile_url: 'https://www.linkedin.com/in/jane-doe', source_search: pageUrl },
+    { source_record_id: 'marie', source_type: 'standard_search', full_name: 'Marie Curie',
+      headline: 'Head of Revenue', profile_url: 'https://www.linkedin.com/in/marie-curie', source_search: pageUrl }
+  ];
+  // Jane was collected in a previous run (seeded from the contact store).
+  const res = await runImportPipeline({
+    records: previews, criteria, nowMs: NOW, job: { id: 'job-dedup', urls_only: true },
+    seenKeys: ['https://www.linkedin.com/in/jane-doe'],
+    enrichProfile: null
+  });
+  // Only the new URL is accepted; the CSV does not contain the duplicate.
+  assert.equal(res.accepted.length, 1);
+  assert.match(res.exports['profiles_selected.csv'], /marie-curie/);
+  assert.doesNotMatch(res.exports['profiles_selected.csv'], /in\/jane-doe/);
+  // The duplicate is recorded in the audit as a cross-job duplicate.
+  const dup = res.audit.find((a) => a.original_url && a.original_url.includes('jane-doe'));
+  assert.equal(dup.decision, 'rejected');
+});
+
 test('every input row appears in the audit', async () => {
   const records = loadSampleRecords();
   const res = await runImportPipeline({ records, criteria, nowMs: NOW, job: { id: 'job-1' } });

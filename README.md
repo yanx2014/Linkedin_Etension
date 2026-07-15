@@ -181,6 +181,22 @@ restarts. Pause, resume, cancel, and retry are available.
 `profile_visit` is forced off in `current_page_only` mode (there is no
 navigation to visit a profile).
 
+### Get profile URLs (URLs only)
+
+The **Get profile URLs** button collects profile URLs only — no profile visits,
+no enrichment, no auto-download (export the CSV yourself when ready). It honors
+the collection mode:
+
+- **Current page only:** reads the URLs on the page you are viewing.
+- **Background search pages:** walks pages **1, 2, 3 … X** until it reaches the
+  **Max profile URLs (Y)** you set (or runs out of pages / hits a checkpoint).
+
+**Deduplication** is enforced at two levels so the same URL is never collected
+twice: within a run, every canonical `/in/` URL is remembered across pages; and
+across runs, URLs already in the contact store are skipped (recorded in the audit
+as duplicates, not re-exported). Each collected URL is stamped with the exact
+search page it came from in the CSV `source_search` column.
+
 ## Criteria schema
 
 See `data/criteria.example.json` and `schemas/criteria.schema.json`.

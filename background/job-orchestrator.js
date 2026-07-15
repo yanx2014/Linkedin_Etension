@@ -214,16 +214,23 @@ async function discoverBackgroundPages(job) {
       if (isBlockedError(err)) { blocked = true; }
       else { logger.warn('preview collection failed; stopping discovery', { reason: err.message }); break; }
     }
+    // Read the tab's current URL first so each row can be stamped with the exact
+    // page it came from (documents origin; also the fingerprint's page key).
+    let currentUrl = job.source_url;
+    try { currentUrl = (await chrome.tabs.get(tabId))?.url || job.source_url; } catch { /* keep source_url */ }
+
     for (const row of (batch && batch.rows) || []) {
       const key = row.profile_url || row.source_record_id;
-      if (key && !seen.has(key)) { seen.add(key); previews.push(row); }
+      // Dedup across ALL pages in this run by canonical profile URL.
+      if (key && !seen.has(key)) {
+        seen.add(key);
+        previews.push({ ...row, source_search: currentUrl });
+      }
     }
 
     // Deterministic result fingerprint (from the rendered slugs) — a robust
     // stall signal: if a page turn yields the same fingerprint, the page did
     // not actually advance even if a "next" control is present.
-    let currentUrl = job.source_url;
-    try { currentUrl = (await chrome.tabs.get(tabId))?.url || job.source_url; } catch { /* keep source_url */ }
     const slugs = (batch && batch.rows ? batch.rows : []).map((r) => slugOf(r.profile_url)).filter(Boolean);
     const fingerprint = resultFingerprint(slugs);
     const freshPage = isNewPage(seenPages, currentUrl, fingerprint);
