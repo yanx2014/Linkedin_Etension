@@ -7,6 +7,7 @@
 // states before extracting.
 
 import { text, attr, absoluteUrl, firstMatching, queryOne, detectBlocked } from '../selectors/common.js';
+import { extractGenericPeople } from '../extractors/preview-extractor.js';
 import { UnsupportedLayoutError, BlockedStateError } from '../../utils/errors.js';
 
 // config: { id, label, urlTest(url), selectors, sourceSpecific }
@@ -42,14 +43,37 @@ export function createListAdapter(config) {
         throw new BlockedStateError(`blocked state on ${id}`, blocked);
       }
       const { nodes } = firstMatching(document, selectors.resultContainers || []);
-      if (!nodes || nodes.length === 0) {
-        throw new UnsupportedLayoutError(`no result containers matched for ${id}`, { id });
+      let rows = [];
+      if (nodes && nodes.length > 0) {
+        for (const container of nodes) {
+          if (rows.length >= limit) break;
+          const raw = extractRow(container, selectors);
+          if (raw.profile_url_raw) rows.push(this.normalizePreviewRow(raw));
+        }
       }
-      const rows = [];
-      for (const container of nodes) {
-        if (rows.length >= limit) break;
-        const raw = extractRow(container, selectors);
-        if (raw.profile_url_raw) rows.push(this.normalizePreviewRow(raw));
+
+      // Fallback: class-name-independent extraction by /in/ links. Used when the
+      // known selectors don't match LinkedIn's current markup. Only applies to
+      // standard /in/ pages (not Sales Navigator / Recruiter source URLs).
+      if (rows.length === 0 && !sourceSpecific) {
+        const generic = extractGenericPeople(document);
+        rows = generic.slice(0, limit).map((g) => ({
+          source_type: id,
+          source_record_id: g.profile_url,
+          profile_url: g.profile_url,
+          source_url: g.profile_url,
+          source_search: label || id,
+          full_name: g.full_name,
+          headline: g.headline || '',
+          current_company: g.current_company || '',
+          location: g.location || '',
+          preview_text: g.preview_text || '',
+          source_specific: false
+        }));
+      }
+
+      if (rows.length === 0) {
+        throw new UnsupportedLayoutError(`no result containers matched for ${id}`, { id });
       }
       return rows;
     },

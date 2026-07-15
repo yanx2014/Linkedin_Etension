@@ -186,6 +186,10 @@ export async function runJob(jobId) {
     } else {
       job.state = JobState.FAILED;
       job.error = err.message;
+      // Surface the reason in the service-worker console (message only — no
+      // profile data) so failures are diagnosable.
+      // eslint-disable-next-line no-console
+      console.error(`[job ${job.id}] FAILED at ${job.state}: ${err.message}`);
     }
     await saveJob(job); emitProgress(job);
     return job;
