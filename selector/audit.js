@@ -29,7 +29,7 @@ export const ReasonCodes = Object.freeze({
 
 export const SELECTOR_VERSION = '1';
 export const PROMPT_VERSION = '1';
-export const MODEL_ID = 'deepseek-v4-pro';
+export const MODEL_ID = 'deepseek-chat';
 
 // Map a canonicalization reason to an audit reason code.
 export function canonReasonToCode(reason) {

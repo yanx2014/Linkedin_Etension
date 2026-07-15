@@ -21,13 +21,15 @@ test('validateStructure accepts the valid fixture and rejects malformed', () => 
   assert.equal(validateStructure({ person: {} , company: { company_context: 'nope' } }).valid, false);
 });
 
-test('deepseek request uses the exact required configuration', () => {
+test('deepseek request uses valid DeepSeek API parameters', () => {
   const body = buildDeepseekRequest({ hello: 'world' });
-  assert.equal(body.model, 'deepseek-v4-pro');
-  assert.deepEqual(body.thinking, { type: 'enabled' });
-  assert.equal(body.reasoning_effort, 'max');
+  assert.equal(body.model, 'deepseek-chat');
   assert.deepEqual(body.response_format, { type: 'json_object' });
   assert.equal(body.temperature, 0);
+  // Invalid/fictional params must NOT be sent (they made every call fail).
+  assert.ok(!('thinking' in body), 'thinking is not a DeepSeek param');
+  assert.ok(!('reasoning_effort' in body), 'reasoning_effort is not a DeepSeek param');
+  assert.equal(body.messages.length, 2);
 });
 
 test('validateResponse grounds against the evidence map and drops unsupported facts', async () => {

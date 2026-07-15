@@ -14,15 +14,19 @@ export function buildDeepseekRequest(sourceBundle) {
     JSON.stringify(sourceBundle)
   ].join('\n\n');
 
-  return {
-    model: config.deepseekModel, // deepseek-v4-pro
-    thinking: { type: 'enabled' },
-    reasoning_effort: config.deepseekReasoningEffort, // max
-    response_format: { type: 'json_object' },
-    temperature: 0,
+  // Only valid DeepSeek (OpenAI-compatible) parameters. `thinking` and
+  // `reasoning_effort` are NOT DeepSeek fields and caused every request to fail.
+  // deepseek-chat supports response_format json_object (the prompt must mention
+  // "json", which it does).
+  const body = {
+    model: config.deepseekModel,
     messages: [
       { role: 'system', content: SYSTEM_PROMPT },
       { role: 'user', content: userContent }
-    ]
+    ],
+    response_format: { type: 'json_object' },
+    temperature: 0,
+    max_tokens: 4000
   };
+  return body;
 }

@@ -6,12 +6,23 @@ import { normalizeText } from '../selector/normalize.js';
 import { tokenize } from '../selector/tokenize.js';
 
 const STOPWORDS = new Set([
+  // English
   'the', 'a', 'an', 'and', 'or', 'of', 'to', 'in', 'on', 'for', 'with', 'at',
   'by', 'is', 'are', 'was', 'were', 'be', 'our', 'we', 'us', 'their', 'this',
   'that', 'as', 'from', 'it', 'its', 'i', 'my', 'your', 'you', 'they', 'how',
   'what', 'why', 'when', 'about', 'more', 'new', 'just', 'very', 'really', 'so',
   'can', 'will', 'would', 'should', 'could', 'has', 'have', 'had', 'do', 'does',
-  'not', 'but', 'if', 'than', 'then', 'them', 'these', 'those', 'here', 'there'
+  'not', 'but', 'if', 'than', 'then', 'them', 'these', 'those', 'here', 'there',
+  // French
+  'le', 'la', 'les', 'un', 'une', 'des', 'du', 'de', 'au', 'aux', 'et', 'à',
+  'en', 'dans', 'pour', 'sur', 'par', 'avec', 'sans', 'sous', 'ce', 'cet',
+  'cette', 'ces', 'cest', 'mon', 'ma', 'mes', 'ton', 'ta', 'tes', 'son', 'sa',
+  'ses', 'nos', 'vos', 'leur', 'leurs', 'je', 'tu', 'il', 'elle', 'ils',
+  'elles', 'nous', 'vous', 'est', 'sont', 'être', 'avoir', 'plus', 'moins',
+  'tres', 'trop', 'bien', 'mais', 'ou', 'donc', 'ni', 'car', 'que', 'qui',
+  'quoi', 'dont', 'quand', 'comme', 'si', 'ne', 'pas', 'rien', 'tout', 'tous',
+  'toute', 'toutes', 'jai', 'nom', 'chez', 'vers', 'entre', 'depuis', 'aussi',
+  'meme', 'fait', 'faire', 'etre', 'ete', 'cela', 'ceux', 'notre', 'votre'
 ]);
 
 const FOCUS_MARKERS = ['focus on', 'focused on', 'passionate about', 'specialise in', 'specialize in', 'interested in', 'my area of work', 'i work on', 'expertise in'];

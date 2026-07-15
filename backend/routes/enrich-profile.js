@@ -8,7 +8,7 @@ import { DeepseekClient } from '../llm/deepseek-client.js';
 import { validateResponse } from '../llm/response-validator.js';
 import { getCached, setCached } from '../cache/enrichment-cache.js';
 import { BraveSearchProvider } from '../search/brave-search-provider.js';
-import { isDeepseekConfigured, isSearchConfigured } from '../config.js';
+import { isDeepseekConfigured, isSearchConfigured, config } from '../config.js';
 import { PROMPT_VERSION } from '../llm/avatar-system-prompt.js';
 
 // deps allows tests to inject searchProvider / safeFetch / deepseek.
@@ -63,6 +63,6 @@ export async function enrichProfileRoute(payload, deps = {}) {
     status,
     warnings,
     prompt_version: PROMPT_VERSION,
-    model: 'deepseek-v4-pro'
+    model: config.deepseekModel
   };
 }
